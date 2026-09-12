@@ -1,0 +1,6 @@
+---
+description: Enforce this repository's spec-driven development lifecycle
+alwaysApply: true
+---
+
+Read and follow `/AGENTS.md` before changing implementation. Never write product code, tests, schemas, infrastructure, dependencies, or behavior unless an approved package under `/specs` covers the change. Keep requirements, plan, tasks, and implementation synchronized, and run the repository spec guard before completion.

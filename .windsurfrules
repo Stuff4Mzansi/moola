@@ -1,0 +1,1 @@
+Read and follow AGENTS.md before changing implementation. Its spec gate is mandatory: an approved package under specs/ must cover product code, tests, schemas, infrastructure, dependencies, and behavior changes. Keep the spec package synchronized and run python scripts/spec_guard.py check --all before completion.

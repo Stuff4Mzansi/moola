@@ -1,0 +1,2 @@
+#!/bin/sh
+python scripts/spec_guard.py check --staged
