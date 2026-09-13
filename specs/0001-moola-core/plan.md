@@ -9,6 +9,8 @@ Product questions and the technical stack are resolved. Implementation remains b
 
 Use Docker Compose to run two lightweight containers: Nginx for HTTP/static assets and PHP-FPM for Laravel. SQLite remains embedded in the application and lives on persistent local storage; there is no database container. The stack must be tuned and measured on the approved 1-CPU/1-GB-RAM home-server profile. Keep feature boundaries explicit without introducing queues, Redis, Node.js at runtime, microservices, or enterprise orchestration.
 
+During implementation, use PHP 8.5, Composer 2, Laravel's local development server, and a repository-local SQLite file. Complete Docker build and runtime integration only after the application features, upgrade tooling, and performance controls are implemented; the deployment contract and acceptance criteria remain unchanged.
+
 ## Selected Stack
 
 - PHP 8.5 on its supported stable patch line.
@@ -73,7 +75,7 @@ Use these primary tables, with foreign keys, constraints, timestamps, and indexe
 
 ## Authentication and Permission Model
 
-- Create the first administrator through an interactive `php artisan moola:admin:create` command. Never ship default credentials or bootstrap a password from a committed environment value.
+- On an empty migrated database, redirect ordinary browser requests to a one-time `/setup` form that creates the household and first administrator and signs that administrator in. Disable both setup reads and writes immediately once any user exists. Never ship default credentials or require shell access for normal installation.
 - Administrators create users with a temporary password. The user must change it on first sign-in. With no email delivery in v1, password resets are administrator-issued temporary passwords that also force a change.
 - Use Laravel session authentication with Argon2id hashing, session rotation at sign-in/password change, generic credential errors, CSRF protection, secure/HTTP-only/SameSite cookies, and sign-in rate limits.
 - Define capabilities as `budget.view/manage`, `transactions.view/manage`, `debts.view/manage`, `networth.view/manage`, `subscriptions.view/manage`, `users.manage`, and `settings.manage`. A manage grant implies the matching view grant.
@@ -136,15 +138,21 @@ Use these primary tables, with foreign keys, constraints, timestamps, and indexe
 - AC-013: Pull-request and scheduled dependency/container scans, with a test confirming that disallowed findings fail the release gate.
 - AC-014: Repeatable warm API benchmark and mobile performance audit against the approved hardware, network, and representative-data profile.
 - AC-015: Administrator account-provisioning and household-membership tests, including creation, disablement, removal, non-member denial, and preservation of unrelated data.
-- AC-016: CLI administrator bootstrap, administrator-provisioned account, forced-password-change, reset, sign-in/sign-out, generic invalid-credential, rate-limit, Argon2id-hash, and session-invalidation tests.
+- AC-016: Browser administrator bootstrap, administrator-provisioned account, forced-password-change, reset, sign-in/sign-out, generic invalid-credential, rate-limit, Argon2id-hash, and session-invalidation tests.
 - AC-017: Independent amortization fixtures for zero-interest, ordinary-interest, extra-payment, rounding-boundary, and payment-below-interest cases.
 - AC-018: Budget creation tests for the three fixed groups, subcategory management, exact zero-based reconciliation, under-allocation, over-allocation, and group roll-ups.
 - AC-019: Positive and negative rollover fixtures, current-income reconciliation tests, available-balance formula tests, and forward recalculation tests after historical edits.
 - AC-020: Permission-matrix integration tests for every protected resource and operation, including direct API denial, administrator-only account management, and immediate revocation.
 - AC-021: Previous-release SQLite fixture migration, migration-failure atomicity, pre-migration backup, documented restore, persistent-volume recreation, and database-integrity tests.
+- AC-022: First-run browser tests covering automatic setup redirect, valid administrator creation and sign-in, invalid form handling, concurrent/duplicate setup protection, permanent setup closure, and continued absence of public registration.
 
 ## Decision Log
 
+- 2026-09-13: Replaced the first-administrator CLI requirement with a one-time browser setup flow for non-technical self-hosters and app-store installers such as Runtipi. Setup is available only while the users table is empty and does not enable public registration.
+- 2026-09-13: Completed the authentication foundation with browser-based first-run setup, administrator-driven account provisioning actions, Argon2id password hashing, generic throttled sign-in failures, global forced-password-change enforcement, encrypted server-side sessions, session invalidation, and authentication audit events.
+- 2026-09-13: Completed the SQLite domain foundation with strict tables, fixed group/capability identifiers, signed 64-bit minor-unit money, basis-point interest rates, explicit foreign-key behavior, measured query-path indexes, typed Eloquent models, factories, and non-production representative data.
+- 2026-09-13: Local development will use PHP/Composer and SQLite directly. Docker deployment assets remain versioned, but image builds and Compose runtime integration move to the final implementation stage so feature development does not require Docker.
+- 2026-09-13: Implemented the foundation on Laravel 13.31, PHP 8.5.10, Composer 2.10.3, and Nginx 1.30.4. Browser assets are served directly so development and production require no Node.js toolchain.
 - 2026-09-12: User approved the initial product specification and Laravel technical plan for implementation.
 - 2026-09-12: Laravel stack approved for planning: PHP 8.5, Laravel 13, Blade, Eloquent, SQLite, custom CSS, minimal vanilla JavaScript, Nginx, and PHP-FPM. No SPA framework, Livewire, Redis, queue worker, or Node.js runtime in v1.
 - 2026-09-12: SQLite selected as the v1 database because its embedded, single-file, low-administration model fits Moola's home-server scope. Storage must remain local, persistent, backed up, and version-migrated.

@@ -13,9 +13,9 @@ Plan: ./plan.md
 - [x] T-005: Resolve deployment and persistence: Docker Compose, SQLite on local persistent storage, versioned migrations, backup/restore, the minimum home-server profile, one installation-wide currency, and user-local time-zone calculations. (AC-002, AC-003, AC-011, AC-021)
 - [x] T-006: Select and document the Laravel 13/PHP 8.5/Blade/SQLite architecture under the dependency and low-resource constraints. (AC-001, AC-011, AC-012, AC-013, AC-014)
 - [x] T-007: Break the approved design into the implementation slices below, covering every acceptance criterion. (AC-001, AC-002, AC-003, AC-004, AC-005, AC-006, AC-007, AC-008, AC-009, AC-010, AC-011, AC-012, AC-013, AC-014, AC-015, AC-016, AC-017, AC-018, AC-019, AC-020, AC-021)
-- [ ] T-008: Scaffold the locked Laravel application, Nginx/PHP-FPM containers, Compose services, non-root runtime, persistent volumes, configuration validation, and health endpoints. (AC-011, AC-012, AC-013)
-- [ ] T-009: Implement the SQLite connection policy, core schema, constraints, indexes, integer money/rate types, factories, and representative seed data. (AC-002, AC-003, AC-004, AC-007, AC-008, AC-009, AC-014, AC-017, AC-018, AC-019, AC-021)
-- [ ] T-010: Implement first-administrator CLI bootstrap, administrator-created accounts, forced password changes/resets, Argon2id authentication, secure sessions, sign-out invalidation, and sign-in rate limiting. (AC-001, AC-015, AC-016)
+- [x] T-008: Scaffold the locked Laravel application and local PHP/SQLite development path, draft the Nginx/PHP-FPM and Compose deployment assets, and implement configuration validation and health endpoints. (AC-011, AC-012, AC-013)
+- [x] T-009: Implement the SQLite connection policy, core schema, constraints, indexes, integer money/rate types, factories, and representative seed data. (AC-002, AC-003, AC-004, AC-007, AC-008, AC-009, AC-014, AC-017, AC-018, AC-019, AC-021)
+- [x] T-010: Implement the one-time browser first-administrator setup, administrator-created accounts, forced password changes/resets, Argon2id authentication, secure sessions, sign-out invalidation, and sign-in rate limiting. (AC-001, AC-015, AC-016, AC-022)
 - [ ] T-011: Implement the granular permission model, policies/gates, administration UI, last-administrator protection, immediate revocation, and complete server-side denial matrix. (AC-001, AC-015, AC-020)
 - [ ] T-012: Implement installation currency, locale, time zone, budget-start-day settings, warnings, formatting, and calendar-period boundary rules. (AC-002, AC-003)
 - [ ] T-013: Implement the three fixed budget groups, subcategory management, expected income, zero-based allocations, finalization, group totals, optional rollover, and historical forward recalculation. (AC-004, AC-018, AC-019)
@@ -28,8 +28,9 @@ Plan: ./plan.md
 - [ ] T-020: Add Composer/container vulnerability checks, license inventory, software bill of materials, dependency-update automation, secret scanning, and the documented dependency review record. (AC-012, AC-013)
 - [ ] T-021: Implement locked startup upgrades, automatic pre-migration backups, retention, restore/doctor commands, integrity checks, previous-release fixtures, and failure recovery. (AC-011, AC-021)
 - [ ] T-022: Tune OPcache, PHP-FPM workers, SQLite queries/indexes, caching headers, and asset delivery; run API and mobile performance budgets on the 1-CPU/1-GB profile. (AC-014)
-- [ ] T-023: Run every automated and manual verification step, reconcile all acceptance criteria, document deployment/backup/upgrade/rollback, and disclose any deviation before marking the package complete. (AC-001, AC-002, AC-003, AC-004, AC-005, AC-006, AC-007, AC-008, AC-009, AC-010, AC-011, AC-012, AC-013, AC-014, AC-015, AC-016, AC-017, AC-018, AC-019, AC-020, AC-021)
+- [ ] T-023: Complete Docker integration last: build and run the Nginx/PHP-FPM Compose stack, verify non-root operation, configuration validation, health checks, persistence, upgrade behavior, and the 1-CPU/1-GB profile. (AC-011, AC-013, AC-014, AC-021)
+- [ ] T-024: Run every automated and manual verification step, reconcile all acceptance criteria, document deployment/backup/upgrade/rollback, and disclose any deviation before marking the package complete. (AC-001, AC-002, AC-003, AC-004, AC-005, AC-006, AC-007, AC-008, AC-009, AC-010, AC-011, AC-012, AC-013, AC-014, AC-015, AC-016, AC-017, AC-018, AC-019, AC-020, AC-021, AC-022)
 
 ## Handoff Notes
 
-Product and architecture decisions are approved. Implementation has not started; T-008 is the first implementation task.
+The local Laravel foundation, constrained SQLite schema, and complete email/password authentication lifecycle are implemented and verified. Docker build/runtime integration remains deferred to T-023. T-011 is next: authorization policies, permission administration, immediate revocation, and last-administrator protection.
