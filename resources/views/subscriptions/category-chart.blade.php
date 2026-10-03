@@ -14,13 +14,13 @@
                             @php $categoryOffset += $category['share']; @endphp
                         @endforeach
                         <text x="60" y="58" text-anchor="middle" fill="currentColor" font-size="18" font-weight="700">{{ $activeCount }}</text>
-                        <text x="60" y="73" text-anchor="middle" fill="currentColor" font-size="8">active subscriptions</text>
+                        <text x="60" y="73" text-anchor="middle" fill="currentColor" font-size="8">subscriptions</text>
                     </svg>
                     <p id="{{ $chartId }}-description" class="sr-only">Category shares of annual equivalent spending, with monthly equivalent amounts listed below.</p>
                     <ul class="space-y-3">
                         @foreach($analytics['categories'] as $index => $category)
                             <li class="flex items-start justify-between gap-3 text-sm">
-                                <span class="flex min-w-0 items-start gap-2"><span class="mt-1 size-3 shrink-0 rounded-full" style="background-color: {{ $chartColours[$index % count($chartColours)] }}" aria-hidden="true"></span><span class="break-words">{{ $category['name'] }}</span></span>
+                                <span class="flex min-w-0 items-start gap-2"><span class="mt-1 size-3 shrink-0 rounded-sm" style="background-color: {{ $chartColours[$index % count($chartColours)] }}" aria-hidden="true"></span><span class="break-words">{{ $category['name'] }}</span></span>
                                 <span class="shrink-0 text-right"><span class="font-semibold">ZAR {{ number_format($category['monthly_cost_cents'] / 100, 2) }}</span><span class="block text-xs opacity-60">{{ number_format($category['share'], 1) }}%</span></span>
                             </li>
                         @endforeach

@@ -13,3 +13,11 @@
 @plugin "daisyui" {
    themes: light --default, dark --prefersdark;
 }
+
+
+:root,
+[data-theme] {
+    --radius-selector: var(--radius-sm);
+    --radius-field: var(--radius-sm);
+    --radius-box: var(--radius-sm);
+}

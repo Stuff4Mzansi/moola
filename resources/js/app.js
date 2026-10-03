@@ -1,4 +1,7 @@
 import './subscription-analytics';
+import './budgets';
+import './budget-trends';
+import './confirm-actions';
 
 document.addEventListener('DOMContentLoaded', () => {
     const themeToggle = document.getElementById('theme-toggle');

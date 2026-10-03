@@ -26,7 +26,7 @@
             <div class="grid gap-6 xl:grid-cols-3">
                 <section class="space-y-4 xl:col-span-2" aria-labelledby="subscription-list-title">
                     <h2 id="subscription-list-title" class="text-xl font-semibold">Your subscriptions</h2>
-                    <form method="get" action="{{ route('subscriptions.index') }}" class="grid gap-3 rounded-box border border-base-300 bg-base-100 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <form method="get" action="{{ route('subscriptions.index') }}" class="grid gap-3 rounded-sm border border-base-300 bg-base-100 p-4 sm:grid-cols-2 lg:grid-cols-3">
                         <div><label class="label" for="search">Search by name</label><input id="search" class="input w-full" name="search" value="{{ $filters['search'] ?? '' }}" maxlength="255" placeholder="Find a subscription"></div>
                         <div><label class="label" for="filter-status">Status</label><select id="filter-status" class="select w-full" name="status"><option value="all">All statuses</option>@foreach(\App\SubscriptionStatus::cases() as $status)<option value="{{ $status->value }}" @selected(($filters['status'] ?? 'all') === $status->value)>{{ $status->label() }}</option>@endforeach</select></div>
                         <div><label class="label" for="filter-category">Category</label><select id="filter-category" class="select w-full" name="category"><option value="">All categories</option>@foreach($categories as $category)<option value="{{ $category }}" @selected(($filters['category'] ?? '') === $category)>{{ $category }}</option>@endforeach</select></div>
@@ -35,7 +35,7 @@
                         <input type="hidden" name="renewal_window" value="{{ $renewalWindow }}">
                         <div class="flex items-end gap-2"><button class="btn btn-primary" type="submit">Apply</button><a class="btn btn-ghost" href="{{ route('subscriptions.index') }}">Reset</a></div>
                     </form>
-                    <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+                    <div class="overflow-x-auto rounded-sm border border-base-300 bg-base-100">
                         <table class="table">
                             <thead><tr><th>Subscription</th><th>Price</th><th>Next renewal</th><th>Status</th></tr></thead>
                             <tbody>
@@ -62,7 +62,7 @@
                             <a @class(['btn btn-sm join-item', 'btn-active' => $renewalWindow === 30]) href="{{ route('subscriptions.index', [...request()->except(['page', 'renewal_window']), 'renewal_window' => 30]) }}" @if($renewalWindow === 30) aria-current="true" @endif>30 days</a>
                         </div>
                     </div>
-                    <div class="rounded-box border border-base-300 bg-base-100">
+                    <div class="rounded-sm border border-base-300 bg-base-100">
                         @forelse($renewals as $renewal)
                             <a class="flex items-start justify-between gap-3 border-b border-base-300 p-4 last:border-b-0 hover:bg-base-200" href="{{ route('subscriptions.show', $renewal['subscription']) }}">
                                 <div><p class="font-semibold">{{ $renewal['subscription']->name }}</p><p class="mt-1 text-sm opacity-60">{{ $renewal['date']->format('d M Y') }}</p></div>

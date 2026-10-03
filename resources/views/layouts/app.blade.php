@@ -26,13 +26,13 @@
             </style>
         @endif
     </head>
-    <body class="min-h-screen overflow-x-hidden bg-base-200 text-base-content">
+    <body class="min-h-screen overflow-x-clip bg-base-200 text-base-content">
 
         <div class="drawer lg:drawer-open">
           <input id="my-drawer-4" type="checkbox" class="drawer-toggle inline" />
             <div class="drawer-content">
                 <!-- Navbar -->
-                <nav class="navbar py-2.5 w-full bg-base-300 border-b border-gray-200">
+                <nav class="navbar sticky top-0 z-20 py-2.5 w-full bg-base-300 border-b border-gray-200">
                     <div class="flex-1">
                         <label for="my-drawer-4" aria-label="open sidebar" class="btn btn-square btn-ghost drawer-button">
                             <!-- Sidebar toggle icon -->
@@ -41,7 +41,7 @@
                     </div>
 
                 <div class="flex-none">
-                    <button id="theme-toggle" class="btn btn-ghost btn-circle" aria-label="Toggle Theme">
+                    <button id="theme-toggle" class="btn btn-ghost btn-square rounded-sm" aria-label="Toggle Theme">
                         <!-- Sun icon (Hidden by default, shown in dark mode) -->
                         <svg id="sun-icon" class="hidden fill-current w-6 h-6" xmlns="http://w3.org" viewBox="0 0 24 24">
                             <path d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/>
@@ -55,8 +55,9 @@
 
                     <details class="dropdown dropdown-end">
                         <summary class="btn btn-ghost min-h-11 gap-2" aria-label="Account menu for {{ auth()->user()->name }}"><x-lucide-circle-user-round class="size-5" aria-hidden="true" />{{ auth()->user()->name }}<x-lucide-chevron-down class="size-4" aria-hidden="true" /></summary>
-                        <ul class="menu dropdown-content z-40 mt-2 w-56 rounded-box border border-base-300 bg-base-100 p-2 shadow-xl [&_a]:min-h-11 [&_button]:min-h-11">
+                        <ul class="menu dropdown-content z-40 mt-2 w-56 rounded-sm border border-base-300 bg-base-100 p-2 shadow-xl [&_a]:min-h-11 [&_button]:min-h-11">
                             @can('settings.manage')<li><a @class(['active' => request()->routeIs('settings.*')]) href="{{ route('settings.edit') }}" @if(request()->routeIs('settings.*')) aria-current="page" @endif><x-lucide-settings class="size-4" aria-hidden="true" />Settings</a></li>@endcan
+                            @can('users.manage')<li><a href="{{ route('admin.budgets.index') }}" @if(request()->routeIs('admin.budgets.*')) aria-current="page" @endif><x-lucide-chart-pie class="size-4" aria-hidden="true" />Manage budgets</a></li>@endcan
                             @can('users.manage')<li><a @class(['active' => request()->routeIs('admin.users.*')]) href="{{ route('admin.users.index') }}" @if(request()->routeIs('admin.users.*')) aria-current="page" @endif><x-lucide-users class="size-4" aria-hidden="true" />Household users</a></li>@endcan
                             <li><form method="post" action="{{ route('logout') }}">@csrf<button type="submit"><x-lucide-log-out class="size-4" aria-hidden="true" />Sign out</button></form></li>
                         </ul>
@@ -67,12 +68,12 @@
                 <div class="p-4">@yield('content')</div>
             </div>
 
-            <div class="drawer-side is-drawer-close:overflow-visible">
+            <div class="drawer-side z-30 is-drawer-close:overflow-visible">
                 <label for="my-drawer-4" aria-label="close sidebar" class="drawer-overlay"></label>
                 <div class="flex min-h-full flex-col items-start bg-base-200 is-drawer-close:w-14 is-drawer-open:w-64">
                 <div class="px-2 py-3 border-b w-full border-gray-200">
                     <a class="inline-flex items-center gap-3 font-extrabold no-underline" href="{{ route('dashboard') }}" aria-label="Moola home">
-                        <span class="flex size-10 items-center justify-center rounded-box bg-primary font-black text-primary-content" aria-hidden="true">M</span>
+                        <span class="flex size-10 items-center justify-center rounded-sm bg-primary font-black text-primary-content" aria-hidden="true">M</span>
                         <span class="is-drawer-close:hidden">Moola</span>
                     </a>
                 </div>
@@ -95,7 +96,7 @@
                     </li>
                     <!-- List item -->
                     <li>
-                        <a class="is-drawer-close:tooltip is-drawer-close:tooltip-right" data-tip="Budget">
+                        <a @class(['is-drawer-close:tooltip is-drawer-close:tooltip-right', 'active' => request()->routeIs('budgets.*')]) href="{{ route('budgets.index') }}" data-tip="Budget" @if(request()->routeIs('budgets.*')) aria-current="page" @endif>
                             <x-lucide-chart-pie class="my-1.5 inline-block size-4"/>
                             <span class="is-drawer-close:hidden">Budget</span>
                         </a>
@@ -112,5 +113,6 @@
             </div>
             </div>
 
+        @include('layouts.confirm-action')
     </body>
 </html>

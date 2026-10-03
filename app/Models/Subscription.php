@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\BillingFrequency;
+use App\RecurringSchedule;
 use App\SubscriptionStatus;
 use Carbon\CarbonImmutable;
 use Database\Factories\SubscriptionFactory;
@@ -52,7 +53,7 @@ class Subscription extends Model
 
         $from = ($from ?? CarbonImmutable::today())->startOfDay();
 
-        return $this->occurrenceDate($this->firstOccurrenceIndex($from));
+        return (new RecurringSchedule($this->billing_frequency, $this->next_billing_date))->next($from);
     }
 
     /** @return list<CarbonImmutable> */
@@ -62,41 +63,6 @@ class Subscription extends Model
             return [];
         }
 
-        $dates = [];
-        $index = $this->firstOccurrenceIndex($from->startOfDay());
-
-        while (($date = $this->occurrenceDate($index))->lte($until->endOfDay())) {
-            $dates[] = $date;
-            $index++;
-        }
-
-        return $dates;
-    }
-
-    private function occurrenceDate(int $index): CarbonImmutable
-    {
-        if ($this->billing_frequency === BillingFrequency::Weekly) {
-            return $this->next_billing_date->addWeeks($index);
-        }
-
-        return $this->next_billing_date->addMonthsNoOverflow($index * $this->billing_frequency->intervalMonths());
-    }
-
-    private function firstOccurrenceIndex(CarbonImmutable $from): int
-    {
-        $anchor = $this->next_billing_date;
-
-        if ($this->billing_frequency === BillingFrequency::Weekly) {
-            $index = max(0, (int) floor($anchor->diffInDays($from) / 7));
-        } else {
-            $months = ($from->year - $anchor->year) * 12 + $from->month - $anchor->month;
-            $index = max(0, intdiv($months, $this->billing_frequency->intervalMonths()));
-        }
-
-        while ($this->occurrenceDate($index)->lt($from)) {
-            $index++;
-        }
-
-        return $index;
+        return (new RecurringSchedule($this->billing_frequency, $this->next_billing_date))->between($from, $until);
     }
 }

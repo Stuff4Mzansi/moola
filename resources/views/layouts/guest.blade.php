@@ -11,7 +11,7 @@
         <main class="flex min-h-screen items-center justify-center px-4 py-12">
             <div class="w-full max-w-md">
                 <div class="mb-8 flex items-center justify-center gap-3 text-2xl font-bold">
-                    <span class="flex size-12 items-center justify-center rounded-box bg-primary text-primary-content" aria-hidden="true">M</span>
+                    <span class="flex size-12 items-center justify-center rounded-sm bg-primary text-primary-content" aria-hidden="true">M</span>
                     Moola
                 </div>
                 <div class="card border border-base-300 bg-base-100 shadow-sm">

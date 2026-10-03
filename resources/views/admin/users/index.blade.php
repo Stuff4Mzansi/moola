@@ -13,7 +13,7 @@
         </div>
         @if(session('status'))<div class="alert alert-success" role="status">{{ session('status') }}</div>@endif
         @if($errors->any())<div class="alert alert-error" role="alert"><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-        <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+        <div class="overflow-x-auto rounded-sm border border-base-300 bg-base-100">
             <table class="table">
                 <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
                 <tbody>
@@ -37,7 +37,7 @@
                                         </form>
                                     @endcan
                                     @can('users.delete', $user)
-                                        <form method="post" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Delete this user? They will lose access to Moola and their subscriptions will be permanently deleted.');">
+                                        <form method="post" action="{{ route('admin.users.destroy', $user) }}" data-confirm="Delete {{ $user->name }}? Their subscriptions and any personal or household budgets they own will be permanently deleted. This cannot be undone." data-confirm-title="Delete user?" data-confirm-label="Delete user">
                                             @csrf
                                             @method('DELETE')
                                             <button class="btn btn-sm btn-outline btn-error" type="submit" aria-label="Delete {{ $user->name }}">Delete</button>
