@@ -1,3 +1,5 @@
+import './subscription-analytics';
+
 document.addEventListener('DOMContentLoaded', () => {
     const themeToggle = document.getElementById('theme-toggle');
     if (!themeToggle) return;

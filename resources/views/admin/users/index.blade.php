@@ -37,7 +37,7 @@
                                         </form>
                                     @endcan
                                     @can('users.delete', $user)
-                                        <form method="post" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Delete this user? They will lose access to Moola.');">
+                                        <form method="post" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Delete this user? They will lose access to Moola and their subscriptions will be permanently deleted.');">
                                             @csrf
                                             @method('DELETE')
                                             <button class="btn btn-sm btn-outline btn-error" type="submit" aria-label="Delete {{ $user->name }}">Delete</button>

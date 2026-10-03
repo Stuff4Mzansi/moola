@@ -87,6 +87,12 @@
                         </a>
                     </li>
 
+                    <li>
+                        <a @class(['is-drawer-close:tooltip is-drawer-close:tooltip-right', 'active' => request()->routeIs('subscriptions.*')]) href="{{ route('subscriptions.index') }}" data-tip="Subscriptions" @if(request()->routeIs('subscriptions.*')) aria-current="page" @endif>
+                            <x-lucide-repeat class="my-1.5 inline-block size-4" aria-hidden="true" />
+                            <span class="is-drawer-close:hidden">Subscriptions</span>
+                        </a>
+                    </li>
                     <!-- List item -->
                     <li>
                         <a class="is-drawer-close:tooltip is-drawer-close:tooltip-right" data-tip="Budget">
