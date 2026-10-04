@@ -1,5 +1,5 @@
-#!/bin/sh
-set -eu
+#!/bin/bash
+set -euo pipefail
 umask 077
 cd /var/www/html
 mkdir -p /data/storage/app/private /data/storage/app/public \
@@ -13,4 +13,24 @@ export APP_KEY
 gosu www-data php artisan config:cache --no-interaction
 gosu www-data php artisan route:cache --no-interaction
 gosu www-data php artisan view:cache --no-interaction
-exec docker-php-entrypoint "$@"
+if [ "${1:-}" != "apache2-foreground" ]; then
+    exec docker-php-entrypoint "$@"
+fi
+
+gosu www-data php artisan schedule:work --no-interaction &
+scheduler_pid=$!
+docker-php-entrypoint "$@" &
+web_pid=$!
+shutdown() {
+    trap - TERM INT
+    kill -TERM "$scheduler_pid" "$web_pid" 2>/dev/null || true
+    wait "$scheduler_pid" "$web_pid" 2>/dev/null || true
+}
+trap 'shutdown; exit 0' TERM INT
+status=0
+wait -n "$scheduler_pid" "$web_pid" || status=$?
+shutdown
+if [ "$status" -eq 0 ]; then
+    status=1
+fi
+exit "$status"

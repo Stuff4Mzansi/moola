@@ -39,6 +39,7 @@ RUN printf 'Listen 8080\n' > /etc/apache2/ports.conf \
     && rm -rf /var/www/html/storage \
     && ln -s /data/storage /var/www/html/storage \
     && mkdir -p /data /var/www/html/bootstrap/cache
+STOPSIGNAL SIGTERM
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
     CMD php -r 'exit(@file_get_contents("http://127.0.0.1:8080/up") === false ? 1 : 0);'

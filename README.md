@@ -12,7 +12,7 @@ docker compose up -d --build
 
 Open `http://localhost:8080` (or your server's IP on port 8080) and create your super administrator in the web UI. Complete this on a private network before enabling public access. No demo user, default password, or manual database setup is required. Only administrators can add users.
 
-The image contains PHP 8.5, Apache, production Composer dependencies, and built frontend assets. Node and Composer are only needed during the image build. The default SQLite installation needs no database container, Redis, mail server, worker, or scheduler for the current features. Web requests run as `www-data`; the entrypoint and Apache master start as root to initialize volume ownership.
+The image contains PHP 8.5, Apache, production Composer dependencies, and built frontend assets. Node and Composer are only needed during the image build. The default SQLite installation needs no database container, Redis, mail server, separate queue worker, or separately configured cron job. A supervised scheduler runs automatically alongside Apache for budget notifications. Web requests run as `www-data`; the entrypoint and Apache master start as root to initialize volume ownership.
 
 `moola-data` holds `/data/database.sqlite`, its WAL files, `/data/app.key`, storage, and backups. Keep this volume when upgrading. `docker compose down` preserves it; **`down --volumes` deletes it**. Run only one app container per SQLite volume.
 
@@ -26,7 +26,7 @@ docker compose --env-file .docker.env up -d --build
 
 The `--env-file` option is also needed when changing `MOOLA_PORT` or `MOOLA_BIND_ADDRESS`. No configuration file is required for the default installation. `.docker.env` is ignored by Git and excluded from image builds; your development `.env` is also excluded.
 
-For HTTPS, use a reverse proxy, set `APP_URL=https://your-domain`, and set `TRUSTED_PROXIES` to the actual proxy IP or subnet. Secure cookies follow the HTTPS URL automatically. Do not trust arbitrary clients. `/up` checks application boot and database connectivity. Container logs go to standard output/error and Compose limits their size.
+For HTTPS, use a reverse proxy, set `APP_URL=https://your-domain`, and set `TRUSTED_PROXIES` to the actual proxy IP or subnet. Secure cookies follow the HTTPS URL automatically. Do not trust arbitrary clients. `/up` checks application boot and database connectivity. Budget notifications are checked every minute; due dates follow `APP_TIMEZONE`. For development or a non-Docker install, run `php artisan schedule:work` alongside your web server (or configure Laravel's scheduler in cron). Admins can configure SMTP and send a test email under Settings. SMTP passwords are encrypted in the database, and changes apply without a restart. Members opt into new email reminders per budget under Notifications. Failed deliveries retry up to five times; saving corrected SMTP settings resets failed attempts. Keep APP_URL set to the address members use so email links work. Container logs go to standard output/error and Compose limits their size.
 
 The application key is generated once and saved privately in `/data/app.key`. Startup refuses to rotate an existing key silently. Do not run `key:generate` on a live installation.
 

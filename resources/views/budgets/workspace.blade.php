@@ -33,14 +33,14 @@
     </div>
     <div class="overflow-x-auto border-b border-base-300">
         <div class="tabs tabs-border w-max min-w-full" role="tablist" aria-label="Budget views">
-            @foreach(['overview' => 'Overview', 'plan' => 'Plan', 'expenses' => 'Expenses', 'subscriptions' => 'Subscriptions', 'recurring' => 'Recurring expenses'] as $tab => $label)
+            @foreach(['overview' => 'Overview', 'plan' => 'Plan', 'expenses' => 'Expenses', 'subscriptions' => 'Subscriptions', 'recurring' => 'Recurring expenses', 'notifications' => 'Notifications'] as $tab => $label)
             <button type="button" id="budget-tab-{{ $tab }}" @class(['tab gap-2 px-5', 'tab-active' => $tab === 'overview']) role="tab" aria-controls="budget-panel-{{ $tab }}" aria-selected="{{ $tab === 'overview' ? 'true' : 'false' }}" tabindex="{{ $tab === 'overview' ? '0' : '-1' }}" data-budget-tab="{{ $tab }}">{{ $label }}@if($tab === 'expenses')<span class="badge badge-sm badge-ghost">{{ $transactions->count() }}</span>@endif</button>
             @endforeach
         </div>
     </div>
-    @foreach(['overview', 'plan', 'expenses', 'subscriptions', 'recurring'] as $tab)
+    @foreach(['overview', 'plan', 'expenses', 'subscriptions', 'recurring', 'notifications'] as $tab)
     <div id="budget-panel-{{ $tab }}" role="tabpanel" aria-labelledby="budget-tab-{{ $tab }}" tabindex="0" data-budget-panel="{{ $tab }}" @if($tab !== 'overview') hidden @endif>
-        @include('budgets.'.(['overview' => 'overview', 'plan' => 'plan', 'expenses' => 'expenses', 'subscriptions' => 'charges', 'recurring' => 'recurring'][$tab]))
+        @include('budgets.'.(['overview' => 'overview', 'plan' => 'plan', 'expenses' => 'expenses', 'subscriptions' => 'charges', 'recurring' => 'recurring', 'notifications' => 'notifications'][$tab]))
     </div>
     @endforeach
     <noscript><style>[data-budget-panel][hidden] { display: block; }</style><p class="text-sm opacity-60">Enable JavaScript to switch between budget tabs.</p></noscript>

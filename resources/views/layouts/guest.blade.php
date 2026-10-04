@@ -3,23 +3,25 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="light dark">
         <title>@yield('title') · {{ config('app.name') }}</title>
+        @include('layouts.theme')
         @fonts
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="min-h-screen bg-base-200 text-base-content">
-        <main class="flex min-h-screen items-center justify-center px-4 py-12">
+    <body class="guest-shell min-h-dvh text-base-content">
+        <main class="flex min-h-dvh items-center justify-center px-4 py-8 sm:py-12">
             <div class="w-full max-w-md">
-                <div class="mb-8 flex items-center justify-center gap-3 text-2xl font-bold">
-                    <span class="flex size-12 items-center justify-center rounded-sm bg-primary text-primary-content" aria-hidden="true">M</span>
-                    Moola
+                <div class="mb-7 flex items-center justify-center gap-3">
+                    <span class="flex size-10 items-center justify-center rounded-sm border border-primary/15 bg-primary/10 text-lg font-bold text-primary" aria-hidden="true">M</span>
+<span><span class="block text-xl font-semibold tracking-tight">Moola</span><span class="mt-0.5 block text-[11px] text-base-content/50">Finance workspace</span></span>
                 </div>
-                <div class="card border border-base-300 bg-base-100 shadow-sm">
-                    <div class="card-body gap-5">
+                <div class="card rounded-sm border border-base-300 bg-base-100">
+                    <div class="card-body gap-5 p-6 sm:p-7">
                         @yield('content')
                     </div>
                 </div>
-                <p class="mt-6 text-center text-sm opacity-70">Your space for individual and household finances.</p>
+                <p class="mt-5 text-center text-xs text-base-content/50">Your space for individual and household finances.</p>
             </div>
         </main>
     </body>

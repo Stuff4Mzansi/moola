@@ -1,22 +1,12 @@
 <!doctype html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="moola">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="light">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="color-scheme" content="light">
+        <meta name="color-scheme" content="light dark">
         <title>@yield('title') | {{ config('app.name') }}</title>
         @fonts
-        <script>
-            // Check local storage or system preference
-            const savedTheme = localStorage.getItem('theme');
-            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
-                document.documentElement.setAttribute('data-theme', 'dark');
-            } else {
-                document.documentElement.setAttribute('data-theme', 'light');
-            }
-        </script>
+        @include('layouts.theme')
         <!-- Styles / Scripts -->
         @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
             @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -26,95 +16,120 @@
             </style>
         @endif
     </head>
-    <body class="min-h-screen overflow-x-clip bg-base-200 text-base-content">
+    <body class="app-shell min-h-dvh overflow-x-clip text-base-content">
+        <a href="#main-content" class="sr-only rounded-sm bg-primary px-4 py-2 text-xs font-semibold text-primary-content focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:outline-2 focus:outline-offset-2 focus:outline-primary">Skip to content</a>
 
-        <div class="drawer lg:drawer-open">
+        <div class="drawer min-h-dvh lg:drawer-open">
           <input id="my-drawer-4" type="checkbox" class="drawer-toggle inline" />
-            <div class="drawer-content">
-                <!-- Navbar -->
-                <nav class="navbar sticky top-0 z-20 py-2.5 w-full bg-base-300 border-b border-gray-200">
-                    <div class="flex-1">
-                        <label for="my-drawer-4" aria-label="open sidebar" class="btn btn-square btn-ghost drawer-button">
-                            <!-- Sidebar toggle icon -->
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-linejoin="round" stroke-linecap="round" stroke-width="2" fill="none" stroke="currentColor" class="my-1.5 inline-block size-4"><path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z"></path><path d="M9 4v16"></path><path d="M14 10l2 2l-2 2"></path></svg>
-                        </label>
+          <script data-sidebar-preference>
+              try {
+                  document.getElementById('my-drawer-4').checked = localStorage.getItem('moola.sidebar.expanded') === 'true';
+              } catch {}
+          </script>
+            <div class="drawer-content flex min-h-dvh min-w-0 flex-col">
+                <nav class="sticky top-0 z-20 flex h-14 w-full shrink-0 items-center justify-between gap-3 border-b border-base-300/70 bg-base-100/95 px-3 shadow-sm backdrop-blur-md sm:px-5" aria-label="Workspace navigation">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <button type="button" class="btn btn-sm btn-ghost btn-square size-8 rounded-sm border border-base-300/70 bg-base-100 text-base-content/60 hover:border-base-300 hover:text-base-content" data-sidebar-toggle aria-controls="app-sidebar" aria-expanded="false" aria-label="Toggle sidebar">
+                            <x-lucide-panel-left class="size-4" aria-hidden="true" />
+                        </button>
+                        <span class="hidden h-5 w-px bg-base-300 sm:block" aria-hidden="true"></span>
+                        <div class="flex min-w-0 items-center gap-2 text-sm">
+                            <a class="hidden shrink-0 font-semibold tracking-tight text-base-content/60 transition-colors hover:text-primary sm:inline" href="{{ route('dashboard') }}">Moola</a>
+                            <x-lucide-chevron-right class="hidden size-3 shrink-0 text-base-content/30 sm:block" aria-hidden="true" />
+                            <span class="truncate font-semibold tracking-tight">@yield('title', 'Dashboard')</span>
+                        </div>
                     </div>
-
-                <div class="flex-none">
-                    <button id="theme-toggle" class="btn btn-ghost btn-square rounded-sm" aria-label="Toggle Theme">
-                        <!-- Sun icon (Hidden by default, shown in dark mode) -->
-                        <svg id="sun-icon" class="hidden fill-current w-6 h-6" xmlns="http://w3.org" viewBox="0 0 24 24">
-                            <path d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/>
-                        </svg>
-
-                        <!-- Moon icon (Hidden by default, shown in light mode) -->
-                        <svg id="moon-icon" class="hidden fill-current w-6 h-6" xmlns="http://w3.org" viewBox="0 0 24 24">
-                            <path d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73A8.15,8.15,0,0,1,9.08,5.49a8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.69Z"/>
-                        </svg>
-                    </button>
-
-                    <details class="dropdown dropdown-end">
-                        <summary class="btn btn-ghost min-h-11 gap-2" aria-label="Account menu for {{ auth()->user()->name }}"><x-lucide-circle-user-round class="size-5" aria-hidden="true" />{{ auth()->user()->name }}<x-lucide-chevron-down class="size-4" aria-hidden="true" /></summary>
-                        <ul class="menu dropdown-content z-40 mt-2 w-56 rounded-sm border border-base-300 bg-base-100 p-2 shadow-xl [&_a]:min-h-11 [&_button]:min-h-11">
-                            @can('settings.manage')<li><a @class(['active' => request()->routeIs('settings.*')]) href="{{ route('settings.edit') }}" @if(request()->routeIs('settings.*')) aria-current="page" @endif><x-lucide-settings class="size-4" aria-hidden="true" />Settings</a></li>@endcan
-                            @can('users.manage')<li><a href="{{ route('admin.budgets.index') }}" @if(request()->routeIs('admin.budgets.*')) aria-current="page" @endif><x-lucide-chart-pie class="size-4" aria-hidden="true" />Manage budgets</a></li>@endcan
-                            @can('users.manage')<li><a @class(['active' => request()->routeIs('admin.users.*')]) href="{{ route('admin.users.index') }}" @if(request()->routeIs('admin.users.*')) aria-current="page" @endif><x-lucide-users class="size-4" aria-hidden="true" />Household users</a></li>@endcan
-                            <li><form method="post" action="{{ route('logout') }}">@csrf<button type="submit"><x-lucide-log-out class="size-4" aria-hidden="true" />Sign out</button></form></li>
-                        </ul>
-                    </details>
-                </div>
+                    <div class="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                        <button id="theme-toggle" type="button" class="btn btn-sm btn-ghost btn-square size-8 rounded-sm text-base-content/60 hover:bg-base-200 hover:text-base-content" aria-label="Switch color theme" title="Switch color theme">
+                            <x-lucide-sun id="sun-icon" class="hidden size-4" aria-hidden="true" />
+                            <x-lucide-moon id="moon-icon" class="hidden size-4" aria-hidden="true" />
+                        </button>
+                        <div data-notification-feed="{{ route('notifications.feed') }}">@include('notifications.bell')</div>
+                        <span class="mx-1 h-6 w-px bg-base-300/80" aria-hidden="true"></span>
+                        <details class="dropdown dropdown-end">
+                            <summary class="btn btn-sm btn-ghost h-9 gap-2 rounded-sm px-1.5 font-normal hover:bg-base-200" aria-label="Account menu for {{ auth()->user()->name }}">
+                                <span class="flex size-7 shrink-0 items-center justify-center rounded-sm bg-primary/10 text-xs font-bold text-primary" aria-hidden="true">{{ \Illuminate\Support\Str::upper(mb_substr(trim(auth()->user()->name), 0, 1)) }}</span>
+                                <span class="hidden min-w-0 text-left sm:block">
+                                    <span class="block max-w-32 truncate text-xs font-semibold leading-tight">{{ auth()->user()->name }}</span>
+                                    <span class="mt-0.5 block text-[10px] leading-tight text-base-content/50">{{ auth()->user()->role->label() }}</span>
+                                </span>
+                                <x-lucide-chevron-down class="size-3 shrink-0 text-base-content/50" aria-hidden="true" />
+                            </summary>
+                            <div class="dropdown-content z-40 mt-3 w-64 rounded-sm border border-base-300 bg-base-100 shadow-xl">
+                                <div class="border-b border-base-300 px-4 py-3">
+                                    <p class="truncate text-sm font-semibold">{{ auth()->user()->name }}</p>
+                                    <p class="mt-1 truncate text-xs text-base-content/50">{{ auth()->user()->email }}</p>
+                                </div>
+                                <ul class="menu gap-1 p-2 w-full text-xs [&_a]:rounded-sm [&_button]:rounded-sm">
+                                    @can('settings.manage')<li><a @class(['active' => request()->routeIs('settings.*')]) href="{{ route('settings.edit') }}" @if(request()->routeIs('settings.*')) aria-current="page" @endif><x-lucide-settings class="size-4" aria-hidden="true" />Settings</a></li>@endcan
+                                    @can('users.manage')<li><a @class(['active' => request()->routeIs('admin.budgets.*')]) href="{{ route('admin.budgets.index') }}" @if(request()->routeIs('admin.budgets.*')) aria-current="page" @endif><x-lucide-chart-pie class="size-4" aria-hidden="true" />Manage budgets</a></li>@endcan
+                                    @can('users.manage')<li><a @class(['active' => request()->routeIs('admin.users.*')]) href="{{ route('admin.users.index') }}" @if(request()->routeIs('admin.users.*')) aria-current="page" @endif><x-lucide-users class="size-4" aria-hidden="true" />Household users</a></li>@endcan
+                                    <li class="mt-1 border-t border-base-300 pt-1"><form class="flex w-full bg-transparent p-0" method="post" action="{{ route('logout') }}">@csrf<button class="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-error hover:bg-error/10" type="submit"><x-lucide-log-out class="size-4" aria-hidden="true" />Sign out</button></form></li>
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
                 </nav>
-                <!-- Page content here -->
-                <div class="p-4">@yield('content')</div>
+                <main id="main-content" tabindex="-1" class="app-content mx-auto w-full min-w-0 max-w-[1600px] flex-1 scroll-mt-16 p-4 outline-none sm:p-6 lg:p-8">@yield('content')</main>
             </div>
 
             <div class="drawer-side z-30 is-drawer-close:overflow-visible">
-                <label for="my-drawer-4" aria-label="close sidebar" class="drawer-overlay"></label>
-                <div class="flex min-h-full flex-col items-start bg-base-200 is-drawer-close:w-14 is-drawer-open:w-64">
-                <div class="px-2 py-3 border-b w-full border-gray-200">
-                    <a class="inline-flex items-center gap-3 font-extrabold no-underline" href="{{ route('dashboard') }}" aria-label="Moola home">
-                        <span class="flex size-10 items-center justify-center rounded-sm bg-primary font-black text-primary-content" aria-hidden="true">M</span>
-                        <span class="is-drawer-close:hidden">Moola</span>
-                    </a>
-                </div>
-                <!-- Sidebar content here -->
-                <ul class="menu w-full grow">
-                    <!-- List item -->
-                    <li>
-                        <a href="{{ route('dashboard') }}" class="is-drawer-close:tooltip is-drawer-close:tooltip-right" data-tip="Dashboard">
-                            <!-- Home icon -->
-                            <x-lucide-layout-dashboard class="my-1.5 inline-block size-4"/>
-                            <span class="is-drawer-close:hidden">Dashboard</span>
+                <label for="my-drawer-4" aria-label="Close sidebar" class="drawer-overlay"></label>
+                <aside id="app-sidebar" class="flex min-h-full flex-col border-r border-base-300/70 bg-base-100 is-drawer-close:w-14 is-drawer-open:w-64" aria-label="Main navigation">
+                    <div class="flex h-14 shrink-0 items-center border-b border-base-300/70 px-3">
+                        <a class="flex min-w-0 items-center gap-3 no-underline" href="{{ route('dashboard') }}" aria-label="Moola home">
+                            <span class="flex size-8 shrink-0 items-center justify-center rounded-sm border border-primary/15 bg-primary/10 text-sm font-bold text-primary" aria-hidden="true">M</span>
+                            <span class="is-drawer-close:hidden"><span class="block text-sm font-semibold tracking-tight">Moola</span><span class="mt-0.5 block text-[10px] leading-tight text-base-content/50">Finance workspace</span></span>
                         </a>
-                    </li>
-
-                    <li>
-                        <a @class(['is-drawer-close:tooltip is-drawer-close:tooltip-right', 'active' => request()->routeIs('subscriptions.*')]) href="{{ route('subscriptions.index') }}" data-tip="Subscriptions" @if(request()->routeIs('subscriptions.*')) aria-current="page" @endif>
-                            <x-lucide-repeat class="my-1.5 inline-block size-4" aria-hidden="true" />
-                            <span class="is-drawer-close:hidden">Subscriptions</span>
+                    </div>
+                    <nav class="flex-1 px-2 py-4" aria-label="Financial features">
+                        @php
+                            $sidebarItems = [
+                                ['route' => 'dashboard', 'match' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'layout-dashboard'],
+                                ['route' => 'budgets.index', 'match' => 'budgets.*', 'label' => 'Budget', 'icon' => 'chart-pie'],
+                                ['route' => 'subscriptions.index', 'match' => 'subscriptions.*', 'label' => 'Subscriptions', 'icon' => 'repeat'],
+                                ['route' => 'debts.index', 'match' => 'debts.*', 'label' => 'Debts', 'icon' => 'landmark'],
+                                ['route' => 'goals.index', 'match' => 'goals.*', 'label' => 'Savings goals', 'icon' => 'target'],
+                                ['route' => 'net-worth.index', 'match' => 'net-worth.*', 'label' => 'Net worth', 'icon' => 'wallet'],
+                            ];
+                        @endphp
+                        <p class="mb-3 px-3 text-[10px] font-medium uppercase tracking-widest text-base-content/40 is-drawer-close:hidden">Your finances</p>
+                        <ul class="space-y-1">
+                            @foreach($sidebarItems as $item)
+                                @php($active = request()->routeIs($item['match']))
+                                <li>
+                                    <a href="{{ route($item['route']) }}" @class([
+                                        'flex h-9 items-center gap-3 rounded-sm border px-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary is-drawer-close:justify-center is-drawer-close:px-0 is-drawer-close:tooltip is-drawer-close:tooltip-right',
+                                        'border-primary/20 bg-primary/10 text-primary' => $active,
+                                        'border-transparent text-base-content/65 hover:bg-base-200/70 hover:text-base-content' => !$active,
+                                    ]) aria-label="{{ $item['label'] }}" data-tip="{{ $item['label'] }}" @if($active) aria-current="page" @endif>
+                                        <x-dynamic-component :component="'lucide-'.$item['icon']" class="size-4 shrink-0" aria-hidden="true" />
+                                        <span class="min-w-0 flex-1 truncate is-drawer-close:hidden">{{ $item['label'] }}</span>
+                                        @if($active)<span class="size-1.5 shrink-0 rounded-sm bg-primary is-drawer-close:hidden" aria-hidden="true"></span>@endif
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </nav>
+                    <div class="border-t border-base-300/70 p-2">
+                        <a href="{{ route('notifications.index') }}" @class([
+                            'flex h-9 items-center gap-3 rounded-sm border px-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary is-drawer-close:justify-center is-drawer-close:px-0 is-drawer-close:tooltip is-drawer-close:tooltip-right',
+                            'border-primary/20 bg-primary/10 text-primary' => request()->routeIs('notifications.*'),
+                            'border-transparent text-base-content/65 hover:bg-base-200/70 hover:text-base-content' => !request()->routeIs('notifications.*'),
+                        ]) aria-label="Notifications" data-tip="Notifications" @if(request()->routeIs('notifications.*')) aria-current="page" @endif>
+                            <x-lucide-bell class="size-4 shrink-0" aria-hidden="true" /><span class="is-drawer-close:hidden">Notifications</span>
                         </a>
-                    </li>
-                    <!-- List item -->
-                    <li>
-                        <a @class(['is-drawer-close:tooltip is-drawer-close:tooltip-right', 'active' => request()->routeIs('budgets.*')]) href="{{ route('budgets.index') }}" data-tip="Budget" @if(request()->routeIs('budgets.*')) aria-current="page" @endif>
-                            <x-lucide-chart-pie class="my-1.5 inline-block size-4"/>
-                            <span class="is-drawer-close:hidden">Budget</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a @class(['is-drawer-close:tooltip is-drawer-close:tooltip-right', 'active' => request()->routeIs('debts.*')]) href="{{ route('debts.index') }}" data-tip="Debts" @if(request()->routeIs('debts.*')) aria-current="page" @endif><x-lucide-landmark class="my-1.5 inline-block size-4" /><span class="is-drawer-close:hidden">Debts</span></a>
-                    </li>
-                    <li><a @class(['is-drawer-close:tooltip is-drawer-close:tooltip-right', 'active' => request()->routeIs('goals.*')]) href="{{ route('goals.index') }}" data-tip="Savings goals" @if(request()->routeIs('goals.*')) aria-current="page" @endif><x-lucide-target class="my-1.5 inline-block size-4" /><span class="is-drawer-close:hidden">Savings goals</span></a></li>
-                    <li><a @class(['is-drawer-close:tooltip is-drawer-close:tooltip-right', 'active' => request()->routeIs('net-worth.*')]) href="{{ route('net-worth.index') }}" data-tip="Net worth" @if(request()->routeIs('net-worth.*')) aria-current="page" @endif><x-lucide-wallet class="my-1.5 inline-block size-4" /><span class="is-drawer-close:hidden">Net worth</span></a></li>
-                    <li>
-                        <a class="is-drawer-close:tooltip is-drawer-close:tooltip-right" data-tip="Settings">
-                            <!-- Settings icon -->
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-linejoin="round" stroke-linecap="round" stroke-width="2" fill="none" stroke="currentColor" class="my-1.5 inline-block size-4"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg>
-                            <span class="is-drawer-close:hidden">Settings</span>
-                        </a>
-                    </li>
-                </ul>
-                </div>
+                        @can('settings.manage')
+                            <a href="{{ route('settings.edit') }}" @class([
+                                'mt-1 flex h-9 items-center gap-3 rounded-sm border px-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary is-drawer-close:justify-center is-drawer-close:px-0 is-drawer-close:tooltip is-drawer-close:tooltip-right',
+                                'border-primary/20 bg-primary/10 text-primary' => request()->routeIs('settings.*'),
+                                'border-transparent text-base-content/65 hover:bg-base-200/70 hover:text-base-content' => !request()->routeIs('settings.*'),
+                            ]) aria-label="Settings" data-tip="Settings" @if(request()->routeIs('settings.*')) aria-current="page" @endif>
+                                <x-lucide-settings class="size-4 shrink-0" aria-hidden="true" /><span class="is-drawer-close:hidden">Settings</span>
+                            </a>
+                        @endcan
+                    </div>
+                </aside>
             </div>
             </div>
 

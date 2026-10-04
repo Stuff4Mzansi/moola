@@ -9,7 +9,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DebtController;
 use App\Http\Controllers\LiquidityController;
 use App\Http\Controllers\NetWorthController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SavingsGoalController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Middleware\EnsureAdministratorExists;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +26,17 @@ Route::middleware(EnsureAdministratorExists::class)->group(function (): void {
 
     Route::middleware('auth')->group(function (): void {
         Route::get('/', DashboardController::class)->name('dashboard');
+        Route::middleware('can:settings.manage')->group(function (): void {
+            Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
+            Route::put('/settings/mail', [SettingsController::class, 'update'])->name('settings.mail.update');
+            Route::post('/settings/mail/test', [SettingsController::class, 'test'])->middleware('throttle:3,1')->name('settings.mail.test');
+        });
+        Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+        Route::get('/notifications/feed', [NotificationController::class, 'feed'])->name('notifications.feed');
+        Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
+        Route::post('/notifications/{notification}/open', [NotificationController::class, 'open'])->whereNumber('notification')->name('notifications.open');
+        Route::post('/budgets/{budget}/notifications/settings', [NotificationController::class, 'settings'])->name('notifications.settings');
+        Route::post('/budgets/{budget}/notifications/preferences', [NotificationController::class, 'preferences'])->name('notifications.preferences');
         Route::post('/logout', [SessionController::class, 'destroy'])->name('logout');
         Route::resource('subscriptions', SubscriptionController::class);
         Route::resource('debts', DebtController::class)->only(['index', 'store', 'update', 'destroy']);

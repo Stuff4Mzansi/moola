@@ -46,3 +46,78 @@
         }
     }
 }
+
+@layer base {
+    :root,
+    [data-theme="light"] {
+        color-scheme: light;
+        --color-base-100: #ffffff;
+        --color-base-200: #f4f7f9;
+        --color-base-300: #dfe7ed;
+        --color-base-content: #243446;
+        --color-primary: #0f766e;
+        --color-primary-content: #ffffff;
+        --moola-surface-shadow: 0 1px 3px rgb(20 40 60 / 0.04), 0 3px 12px rgb(20 40 60 / 0.02);
+        --moola-dialog-shadow: 0 24px 64px rgb(15 30 45 / 0.18);
+    }
+
+    [data-theme="dark"] {
+        color-scheme: dark;
+        --color-base-100: #182530;
+        --color-base-200: #101b25;
+        --color-base-300: #2c3d4c;
+        --color-base-content: #e2eaf2;
+        --color-primary: #5eead4;
+        --color-primary-content: #10352f;
+        --moola-surface-shadow: 0 1px 3px rgb(0 0 0 / 0.16), 0 3px 12px rgb(0 0 0 / 0.08);
+        --moola-dialog-shadow: 0 24px 64px rgb(0 0 0 / 0.35);
+    }
+
+    ::selection {
+        background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    }
+}
+
+@layer utilities {
+    @layer daisyui.l1.l2.l3 {
+        .app-shell,
+        .guest-shell {
+            background-color: var(--color-base-200);
+            background-image: radial-gradient(ellipse at top left, color-mix(in srgb, var(--color-primary) 4%, transparent), transparent 40rem);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        :is(.app-shell, .guest-shell) .card {
+            box-shadow: var(--moola-surface-shadow);
+        }
+
+        :is(.app-shell, .guest-shell) .label {
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        :is(.app-shell, .guest-shell) .btn {
+            font-weight: 600;
+        }
+
+        :is(.app-shell, .guest-shell) :is(a, button, summary):focus-visible {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 3px;
+        }
+
+        .app-shell :is(.stat-value, .table) {
+            font-variant-numeric: tabular-nums;
+        }
+
+        :is(.app-shell, .guest-shell) .modal[open] {
+            background-color: rgb(10 20 30 / 0.45);
+            backdrop-filter: blur(3px);
+        }
+
+        :is(.app-shell, .guest-shell) .modal-box {
+            border: 1px solid var(--color-base-300);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--moola-dialog-shadow);
+        }
+    }
+}

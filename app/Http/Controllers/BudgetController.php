@@ -3,12 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\BudgetMoney;
+use App\BudgetNotifications;
 use App\BudgetRecurringExpenses;
 use App\BudgetWorkspace;
 use App\Http\Requests\BudgetActionRequest;
 use App\Models\Budget;
 use App\Models\BudgetCategory;
+use App\Models\BudgetNotificationPreference;
 use App\Models\BudgetPeriod;
+use App\Models\MailSetting;
 use App\Models\SavingsGoal;
 use App\Models\User;
 use App\SavingsAccounts;
@@ -59,7 +62,14 @@ class BudgetController extends Controller
     /** @return array<string, mixed> */
     private function viewData(Request $request, BudgetPeriod $period): array
     {
-        return [...$this->workspace->data($period),
+        $data = $this->workspace->data($period);
+        app(BudgetNotifications::class)->evaluate($period, $data);
+
+        return [...$data,
+            'notificationTypes' => BudgetNotifications::TYPES,
+            'emailAvailable' => MailSetting::query()->where('id', 1)->where('enabled', true)->exists(),
+            'emailEnabled' => BudgetNotificationPreference::query()->where('budget_id', $period->budget_id)->where('user_id', $request->user()->id)->value('email_enabled') ?? false,
+            'mutedNotificationTypes' => BudgetNotificationPreference::query()->where('budget_id', $period->budget_id)->where('user_id', $request->user()->id)->first()?->muted_types ?? [],
             'budgets' => $this->accessibleBudgets($request->user()),
             'canEdit' => Gate::allows('update', $period->budget),
             'isOwner' => Gate::allows('share', $period->budget),

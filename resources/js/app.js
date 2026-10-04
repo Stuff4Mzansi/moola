@@ -1,3 +1,4 @@
+import './notifications';
 import './subscription-analytics';
 import './budgets';
 import './budget-trends';
@@ -8,6 +9,23 @@ import './liquidity';
 import './confirm-actions';
 
 document.addEventListener('DOMContentLoaded', () => {
+    const sidebarToggle = document.querySelector('[data-sidebar-toggle]');
+    const drawer = document.getElementById('my-drawer-4');
+    if (sidebarToggle && drawer) {
+        const reflectSidebar = () => sidebarToggle.setAttribute('aria-expanded', String(drawer.checked));
+        sidebarToggle.addEventListener('click', () => {
+            drawer.checked = !drawer.checked;
+            drawer.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        drawer.addEventListener('change', () => {
+            reflectSidebar();
+            try {
+                localStorage.setItem('moola.sidebar.expanded', String(drawer.checked));
+            } catch {}
+        });
+        reflectSidebar();
+    }
+
     const themeToggle = document.getElementById('theme-toggle');
     if (!themeToggle) return;
 
@@ -16,6 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to visually switch the icon visibility manually
     function reflectThemeDisplay(theme) {
+        const label = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+        themeToggle.setAttribute('aria-label', label);
+        themeToggle.title = label;
         if (theme === 'dark') {
             sunIcon.classList.remove('hidden');
             sunIcon.classList.add('block');
@@ -42,8 +63,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Apply theme to the HTML tag
         document.documentElement.setAttribute('data-theme', nextTheme);
+        document.documentElement.style.colorScheme = nextTheme;
         // Persist manual preference to local storage
-        localStorage.setItem('theme', nextTheme);
+        try {
+            localStorage.setItem('theme', nextTheme);
+        } catch {}
 
         // Change the icon visibility
         reflectThemeDisplay(nextTheme);

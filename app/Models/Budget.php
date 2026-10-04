@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'scope', 'include_subscriptions', 'repeat_cycle', 'anchor_date'])]
+#[Fillable(['name', 'scope', 'include_subscriptions', 'repeat_cycle', 'anchor_date', 'notifications_enabled', 'notification_threshold', 'reminder_days', 'period_reminder_days'])]
 class Budget extends Model
 {
     /** @use HasFactory<BudgetFactory> */
@@ -29,7 +29,7 @@ class Budget extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['include_subscriptions' => 'boolean', 'anchor_date' => 'immutable_date'];
+        return ['include_subscriptions' => 'boolean', 'anchor_date' => 'immutable_date', 'notifications_enabled' => 'boolean', 'notification_threshold' => 'integer', 'reminder_days' => 'integer', 'period_reminder_days' => 'integer'];
     }
 
     /** @return BelongsTo<User, $this> */

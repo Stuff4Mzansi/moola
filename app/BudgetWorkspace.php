@@ -79,10 +79,10 @@ class BudgetWorkspace
         $categories = $period->categories()->orderBy('id')->get();
         $transactions = $period->transactions()->orderByDesc('date')->orderByDesc('id')->get();
         $incomes = $period->incomes()->get();
-        $commitments = $period->commitments()->with('transaction')->whereBetween('scheduled_date', [$period->start_date->toDateString(), $period->end_date->toDateString()])->get()
+        $commitments = $period->commitments()->with('transaction')->whereDate('scheduled_date', '>=', $period->start_date->toDateString())->whereDate('scheduled_date', '<=', $period->end_date->toDateString())->get()
             ->filter(fn (BudgetCommitment $commitment): bool => $commitment->is_current || $commitment->transaction !== null)
             ->sortBy(fn (BudgetCommitment $commitment): string => $commitment->scheduled_date->toDateString())->values();
-        $recurringCharges = $period->recurringCharges()->with('transaction')->whereBetween('scheduled_date', [$period->start_date->toDateString(), $period->end_date->toDateString()])->get()->filter(fn (BudgetRecurringCharge $charge): bool => $charge->is_current || $charge->transaction !== null)->sortBy('scheduled_date')->values();
+        $recurringCharges = $period->recurringCharges()->with('transaction')->whereDate('scheduled_date', '>=', $period->start_date->toDateString())->whereDate('scheduled_date', '<=', $period->end_date->toDateString())->get()->filter(fn (BudgetRecurringCharge $charge): bool => $charge->is_current || $charge->transaction !== null)->sortBy('scheduled_date')->values();
         $scheduledCents = $commitments->sum('amount_cents');
         $categoryRows = $categories->map(function (BudgetCategory $category) use ($transactions, $commitments, $scheduledCents, $recurringCharges): array {
             $planned = $category->allocated_cents ?? ($category->kind === 'subscriptions' ? $scheduledCents : 0);
