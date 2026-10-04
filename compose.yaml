@@ -1,0 +1,26 @@
+services:
+  app:
+    image: moola:local
+    build:
+      context: .
+      target: production
+    restart: unless-stopped
+    init: true
+    env_file:
+      - path: .docker.env
+        required: false
+    ports:
+      - "${MOOLA_BIND_ADDRESS:-0.0.0.0}:${MOOLA_PORT:-8080}:8080"
+    volumes:
+      - moola-data:/data
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    stop_grace_period: 30s
+
+volumes:
+  moola-data:

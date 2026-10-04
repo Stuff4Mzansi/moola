@@ -17,6 +17,6 @@ class SavingsContributionRequest extends FormRequest
     /** @return array<string, mixed> */
     public function rules(): array
     {
-        return ['contribution_id' => ['nullable', 'integer'], 'request_id' => ['required', 'uuid'], 'amount' => BudgetMoney::rules(true), 'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$this->route('goal')->start_date->toDateString(), 'before_or_equal:today'], 'source' => ['required', 'in:goal,budget,existing'], 'transaction_id' => ['nullable', 'integer', 'required_if:source,existing'], 'notes' => ['nullable', 'string', 'max:255']];
+        return ['money_origin' => ['nullable', 'in:existing,new'], 'contribution_id' => ['nullable', 'integer'], 'request_id' => ['required', 'uuid'], 'amount' => BudgetMoney::rules(true), 'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$this->route('goal')->start_date->toDateString(), 'before_or_equal:today'], 'source' => ['required', 'in:goal,budget,existing'], 'transaction_id' => ['nullable', 'integer', 'required_if:source,existing'], 'notes' => ['nullable', 'string', 'max:255']];
     }
 }

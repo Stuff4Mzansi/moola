@@ -105,6 +105,7 @@
                         <a @class(['is-drawer-close:tooltip is-drawer-close:tooltip-right', 'active' => request()->routeIs('debts.*')]) href="{{ route('debts.index') }}" data-tip="Debts" @if(request()->routeIs('debts.*')) aria-current="page" @endif><x-lucide-landmark class="my-1.5 inline-block size-4" /><span class="is-drawer-close:hidden">Debts</span></a>
                     </li>
                     <li><a @class(['is-drawer-close:tooltip is-drawer-close:tooltip-right', 'active' => request()->routeIs('goals.*')]) href="{{ route('goals.index') }}" data-tip="Savings goals" @if(request()->routeIs('goals.*')) aria-current="page" @endif><x-lucide-target class="my-1.5 inline-block size-4" /><span class="is-drawer-close:hidden">Savings goals</span></a></li>
+                    <li><a @class(['is-drawer-close:tooltip is-drawer-close:tooltip-right', 'active' => request()->routeIs('net-worth.*')]) href="{{ route('net-worth.index') }}" data-tip="Net worth" @if(request()->routeIs('net-worth.*')) aria-current="page" @endif><x-lucide-wallet class="my-1.5 inline-block size-4" /><span class="is-drawer-close:hidden">Net worth</span></a></li>
                     <li>
                         <a class="is-drawer-close:tooltip is-drawer-close:tooltip-right" data-tip="Settings">
                             <!-- Settings icon -->

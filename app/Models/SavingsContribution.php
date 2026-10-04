@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['request_id', 'budget_transaction_id', 'amount_cents', 'date', 'notes', 'budget_period_name'])]
+#[Fillable(['request_id', 'budget_transaction_id', 'amount_cents', 'date', 'notes', 'budget_period_name', 'money_origin'])]
 class SavingsContribution extends Model
 {
     /** @use HasFactory<SavingsContributionFactory> */
@@ -18,7 +18,13 @@ class SavingsContribution extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['amount_cents' => 'integer', 'date' => 'immutable_date'];
+        return ['asset_id' => 'integer', 'amount_cents' => 'integer', 'date' => 'immutable_date'];
+    }
+
+    /** @return BelongsTo<Asset, $this> */
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Asset::class, 'asset_id');
     }
 
     /** @return BelongsTo<SavingsGoal, $this> */

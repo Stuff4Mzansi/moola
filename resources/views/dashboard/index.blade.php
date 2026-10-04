@@ -12,6 +12,7 @@
         @include('dashboard.budgets')
         @include('dashboard.debts')
     @include('dashboard.goals')
+    @include('dashboard.net-worth')
         <section class="space-y-5" aria-labelledby="dashboard-subscriptions-title">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <h2 id="dashboard-subscriptions-title" class="text-xl font-semibold">Subscription overview</h2>

@@ -5,12 +5,15 @@ namespace App\Http\Controllers;
 use App\BudgetMoney;
 use App\Http\Requests\SavingsContributionRequest;
 use App\Http\Requests\SavingsGoalRequest;
+use App\Models\Asset;
+use App\Models\AssetReserve;
 use App\Models\Budget;
 use App\Models\BudgetCategory;
 use App\Models\BudgetPeriod;
 use App\Models\BudgetTransaction;
 use App\Models\SavingsContribution;
 use App\Models\SavingsGoal;
+use App\SavingsAccounts;
 use App\SavingsWorkspace;
 use Carbon\CarbonImmutable;
 use Closure;
@@ -19,7 +22,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -50,7 +52,7 @@ class SavingsGoalController extends Controller
         }
         $coverage = $request->integer('coverage', 3);
 
-        return view('goals.index', [...$workspace->build($request->user()), 'budgets' => $budgets, 'categories' => $categories, 'transactions' => $transactions, 'helperBudget' => $helperBudget, 'emergency' => ['monthly' => $monthly, 'target' => $monthly === null ? null : $monthly * $coverage, 'basis' => $basis, 'coverage' => $coverage]]);
+        return view('goals.index', [...$workspace->build($request->user()), 'budgets' => $budgets, 'categories' => $categories, 'transactions' => $transactions, 'helperBudget' => $helperBudget, 'accounts' => Asset::query()->where('user_id', $request->user()->id)->where('kind', 'bank')->orderBy('name')->get(), 'emergency' => ['monthly' => $monthly, 'target' => $monthly === null ? null : $monthly * $coverage, 'basis' => $basis, 'coverage' => $coverage]]);
     }
 
     public function store(SavingsGoalRequest $request): RedirectResponse
@@ -65,10 +67,11 @@ class SavingsGoalController extends Controller
 
     private function persist(SavingsGoalRequest $request, ?SavingsGoal $goal): RedirectResponse
     {
+        $account = $request->filled('asset_id') ? Asset::query()->where('user_id', $request->user()->id)->where('kind', 'bank')->findOrFail($request->integer('asset_id')) : null;
         $category = $request->filled('category_id') ? BudgetCategory::query()->findOrFail($request->integer('category_id')) : null;
         $period = $category === null ? null : BudgetPeriod::query()->whereHas('budget', fn (Builder $query): Builder => $query->where('user_id', $request->user()->id))->findOrFail($category->budget_period_id);
         abort_if($category !== null && $category->kind !== 'custom', 422, 'Choose a custom savings category.');
-        $this->locked($period === null ? [] : [$period->budget_id], function () use ($request, $goal, $category, $period): void {
+        $this->locked($period === null ? [] : [$period->budget_id], function () use ($request, $goal, $category, $period, $account): void {
             $goal?->refresh();
             $opening = BudgetMoney::cents($request->input('opening'));
             if ($goal?->contributions()->withTrashed()->exists() && ($goal->opening_cents !== $opening || $goal->start_date->toDateString() !== $request->input('start_date'))) {
@@ -76,7 +79,13 @@ class SavingsGoalController extends Controller
             }
             $goal ??= new SavingsGoal;
             $goal->user_id = $request->user()->id;
+            if ($request->has('asset_id')) {
+                $goal->asset_id = $account?->id;
+                $goal->unsetRelation('account');
+            }
             $goal->fill(['name' => $request->input('name'), 'kind' => $request->input('kind'), 'target_cents' => BudgetMoney::cents($request->input('target')), 'opening_cents' => $opening, 'start_date' => $request->input('start_date'), 'target_date' => $request->input('target_date'), 'monthly_cents' => BudgetMoney::cents($request->input('monthly')), 'budget_id' => $period?->budget_id, 'category_name' => $category?->name, 'notes' => $request->input('notes')])->save();
+            app(SavingsAccounts::class)->sync($goal);
+            app(SavingsAccounts::class)->assertFunded($goal);
         });
 
         return to_route('goals.index')->with('status', 'Savings goal saved.');
@@ -111,9 +120,21 @@ class SavingsGoalController extends Controller
                 abort_unless($goal->budget_id === $period->budget_id, 422, 'The budget link changed. Refresh and retry.');
             }
             $amount = BudgetMoney::cents($request->input('amount'));
+            $origin = $request->input('money_origin') ?? $existing?->money_origin ?? 'existing';
+            $accountId = $existing?->asset_id ?? $goal->asset_id;
+            if ($origin === 'new') {
+                $account = Asset::query()->where('user_id', $goal->user_id)->where('kind', 'bank')->find($accountId);
+                if ($account === null) {
+                    throw ValidationException::withMessages(['money_origin' => 'Link this goal to an active bank or cash account first.']);
+                }
+                $latest = $account->valuations()->whereDate('date', '<=', CarbonImmutable::today())->orderByDesc('date')->first();
+                if ($latest === null || ($existing?->money_origin !== 'new' && $request->input('date') < $latest->date->toDateString())) {
+                    throw ValidationException::withMessages(['money_origin' => 'Record an account balance on or before this date first. If this money is already included in a newer balance, choose money already in the account.']);
+                }
+            }
             if ($existing === null && SavingsContribution::withTrashed()->where('request_id', $request->input('request_id'))->exists()) {
                 $replay = $goal->contributions()->where('request_id', $request->input('request_id'))->first();
-                abort_unless($replay !== null && $replay->amount_cents === $amount && $replay->date->toDateString() === $request->input('date'), 422, 'This request was already used. Refresh and retry.');
+                abort_unless($replay !== null && $replay->amount_cents === $amount && $replay->date->toDateString() === $request->input('date') && $replay->money_origin === $origin, 422, 'This request was already used. Refresh and retry.');
 
                 return;
             }
@@ -133,6 +154,8 @@ class SavingsGoalController extends Controller
                     abort_if($transaction->trashed() || ($transaction->savings_goal_id !== null && $transaction->savings_goal_id !== $goal->id), 422, 'This expense is no longer available.');
                     abort_if($existing === null && SavingsContribution::withTrashed()->where('budget_transaction_id', $transaction->id)->exists(), 422, 'This expense already has a contribution.');
                 }
+                $transaction->savingsMoneyOrigin = $origin;
+                $transaction->savingsAccountId = $accountId;
                 $transaction->savings_goal_id = $goal->id;
                 $transaction->fill(['amount_cents' => $amount, 'date' => $request->input('date'), 'description' => $request->input('notes') ?: ($transaction->description ?: 'Savings contribution')])->save();
                 if ($existing !== null && $existing->budget_transaction_id === null) {
@@ -144,8 +167,10 @@ class SavingsGoalController extends Controller
                 $period->increment('version');
             } else {
                 $entry = $existing ?? $goal->contributions()->make(['request_id' => $request->input('request_id')]);
-                $entry->fill(['amount_cents' => $amount, 'date' => $request->input('date'), 'notes' => $request->input('notes')])->save();
+                $entry->asset_id = $accountId;
+                $entry->fill(['money_origin' => $origin, 'amount_cents' => $amount, 'date' => $request->input('date'), 'notes' => $request->input('notes')])->save();
             }
+            app(SavingsAccounts::class)->assertFunded($goal);
         });
 
         return to_route('goals.index', ['tab' => 'contributions'])->with('status', 'Contribution recorded.');
@@ -179,7 +204,7 @@ class SavingsGoalController extends Controller
         if ($transaction !== null) {
             Gate::authorize('update', $transaction->period->budget);
         }
-        $this->locked($transaction === null ? [] : [$transaction->period->budget_id], function () use ($transaction, $contribution): void {
+        $this->locked($transaction === null ? [] : [$transaction->period->budget_id], function () use ($transaction, $contribution, $goal): void {
             if ($transaction !== null) {
                 abort_unless($transaction->date->betweenIncluded($transaction->period->start_date, $transaction->period->end_date), 422, 'The contribution no longer fits its budget dates.');
                 $transaction->restore();
@@ -187,6 +212,7 @@ class SavingsGoalController extends Controller
             } else {
                 $contribution->restore();
             }
+            app(SavingsAccounts::class)->assertFunded($goal);
         });
 
         return to_route('goals.index', ['tab' => 'contributions'])->with('status', 'Contribution restored.');
@@ -195,7 +221,10 @@ class SavingsGoalController extends Controller
     public function destroy(SavingsGoal $goal): RedirectResponse
     {
         Gate::authorize('delete', $goal);
-        $this->locked($goal->budget_id === null ? [] : [$goal->budget_id], fn (): ?bool => $goal->delete());
+        $this->locked($goal->budget_id === null ? [] : [$goal->budget_id], function () use ($goal): void {
+            AssetReserve::query()->where('savings_goal_id', $goal->id)->where('is_automatic', true)->delete();
+            $goal->delete();
+        });
 
         return to_route('goals.index')->with('status', 'Goal deleted. Recorded budget expenses were kept.');
     }
@@ -212,7 +241,7 @@ class SavingsGoalController extends Controller
         sort($budgetIds);
         $ids = array_values(array_unique($budgetIds));
         if ($ids === []) {
-            return DB::transaction($action);
+            return app(SavingsAccounts::class)->locked((int) auth()->id(), $action);
         }
         $first = array_shift($ids);
 

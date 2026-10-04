@@ -3,6 +3,8 @@ import './budgets';
 import './budget-trends';
 import './debts';
 import './goals';
+import './net-worth';
+import './liquidity';
 import './confirm-actions';
 
 document.addEventListener('DOMContentLoaded', () => {

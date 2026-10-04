@@ -1,58 +1,96 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Moola
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Self-hosted financial planning for individuals and households: budgets, subscriptions, debts, savings goals, net worth, and liquidity.
 
-## About Laravel
+## Docker quick start
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Install Docker Engine/Desktop with Docker Compose v2.24 or newer. From this repository:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```sh
+docker compose up -d --build
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Open `http://localhost:8080` (or your server's IP on port 8080) and create your super administrator in the web UI. Complete this on a private network before enabling public access. No demo user, default password, or manual database setup is required. Only administrators can add users.
 
-## Contributing
+The image contains PHP 8.5, Apache, production Composer dependencies, and built frontend assets. Node and Composer are only needed during the image build. The default SQLite installation needs no database container, Redis, mail server, worker, or scheduler for the current features. Web requests run as `www-data`; the entrypoint and Apache master start as root to initialize volume ownership.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+`moola-data` holds `/data/database.sqlite`, its WAL files, `/data/app.key`, storage, and backups. Keep this volume when upgrading. `docker compose down` preserves it; **`down --volumes` deletes it**. Run only one app container per SQLite volume.
 
-## Code of Conduct
+## Optional configuration and HTTPS
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Copy `.docker.env.example` to `.docker.env`, then set `APP_URL` to the address you use and `APP_TIMEZONE` to your timezone. Recreate the container after changing settings:
 
-## Security Vulnerabilities
+```sh
+docker compose --env-file .docker.env up -d --build
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+The `--env-file` option is also needed when changing `MOOLA_PORT` or `MOOLA_BIND_ADDRESS`. No configuration file is required for the default installation. `.docker.env` is ignored by Git and excluded from image builds; your development `.env` is also excluded.
 
-## License
+For HTTPS, use a reverse proxy, set `APP_URL=https://your-domain`, and set `TRUSTED_PROXIES` to the actual proxy IP or subnet. Secure cookies follow the HTTPS URL automatically. Do not trust arbitrary clients. `/up` checks application boot and database connectivity. Container logs go to standard output/error and Compose limits their size.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+The application key is generated once and saved privately in `/data/app.key`. Startup refuses to rotate an existing key silently. Do not run `key:generate` on a live installation.
+
+## Runtipi and other Docker UI managers
+
+For your own Runtipi installation, use **Create Custom App** and paste `runtipi-compose.yaml`. It uses the current schema-v2 `x-runtipi` format, Runtipi routing, its external URL/timezone, and `${APP_DATA_DIR}/data` for persistent storage. Review the trusted proxy subnets if your network differs. See [Runtipi dynamic compose](https://runtipi.io/docs/reference/dynamic-compose).
+
+The template currently uses `moola:local`. Before installing it, build the image on your Runtipi server:
+
+```sh
+docker build --target production -t moola:local .
+```
+
+Alternatively, replace `image: moola:local` with your published image and version. This repository does not assume an image has already been published and does not add the app to Runtipi's official store.
+
+For a registry image, `.github/workflows/docker.yml` provides a manual GitHub Actions publish option. Push the complete application to your GitHub repository, run the **Docker** workflow with **publish** checked and a version such as `1.0.0`, and use `ghcr.io/<owner>/<repository>:1.0.0`. Publication happens only when explicitly selected. Set the package visibility to public for UI installations without registry credentials. The workflow tests the amd64 container before building and publishing amd64/arm64 images; ARM runtime still needs verification on your hardware.
+
+Other managers supporting Compose can use `compose.image.yaml` with `MOOLA_IMAGE` set to a real published image. The source-build `compose.yaml` can also be used by managers with build support.
+
+## Backups, upgrades, and recovery
+
+Create a consistent SQLite snapshot, including the encryption key and files in `storage/app`:
+
+```sh
+docker compose exec --user www-data app php artisan moola:backup --no-interaction
+```
+
+The command prints the archive path under `/data/backups`. Copy it off the server regularly using your preferred backup tool. These archives contain private financial information and the encryption key; protect them. Backups do not include `.docker.env` or external database servers. Concurrent uploaded-file changes are not synchronized with the database snapshot; stop writes for an exact whole-app backup. Automatic backups are made before pending SQLite migrations, not on a daily schedule, and are not pruned automatically.
+
+To upgrade a source build:
+
+```sh
+docker compose exec --user www-data app php artisan moola:backup --no-interaction
+# Update the source to the desired tested release.
+docker compose up -d --build
+```
+
+For a registry image, update its version, pull, and recreate using the same Compose file and volume. Startup runs migrations automatically and stops if the pre-upgrade backup fails. Do not downgrade the image against an upgraded database; restore the matching backup and previous image together.
+
+To restore an archive already copied into `/data/backups`, stop the app and replace `BACKUP.tar` below with its actual filename:
+
+```sh
+docker compose stop app
+docker compose run --rm --no-deps --entrypoint sh app -c 'rm -f /data/database.sqlite-wal /data/database.sqlite-shm; tar -xf /data/backups/BACKUP.tar -C /data'
+docker compose up -d
+```
+
+The entrypoint repairs ownership. Restart with the saved key; if `.docker.env` supplies `APP_KEY`, it must match the restored key. For a completely fresh volume, first copy the archive into it with your Docker manager or a temporary volume-mounted container. Runtipi's backup UI can also protect its app data directory; stop the app while taking a filesystem-level backup of SQLite.
+
+To import an existing installation, stop its writes, copy its database and `storage/app` into the persistent data directory, and supply its original `APP_KEY` on the first start. Never generate a replacement key for an existing database. Keep an untouched copy of the original data until the import is verified.
+
+## Verification and development
+
+```sh
+php artisan test --compact
+node --test tests/*.test.js
+```
+
+The Docker workflow validates Compose, builds the production image, and checks first-admin setup, frontend assets, encrypted session persistence after recreation, backups, and recovery of the administrator, session, key, and stored files. To run those container checks locally against a disposable fresh volume, first make sure port 8080 is free:
+
+```sh
+COMPOSE_PROJECT_NAME=moola-smoke docker compose up -d --build
+COMPOSE_PROJECT_NAME=moola-smoke node tests/docker-smoke.mjs
+COMPOSE_PROJECT_NAME=moola-smoke docker compose down --volumes
+```
+
+For development, use Laravel Herd and the existing Composer/npm workflows. Docker configuration changes do not modify your local `.env` or existing database.

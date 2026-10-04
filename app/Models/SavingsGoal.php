@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'kind', 'target_cents', 'opening_cents', 'start_date', 'target_date', 'monthly_cents', 'budget_id', 'category_name', 'notes'])]
+#[Fillable(['name', 'kind', 'target_cents', 'opening_cents', 'start_date', 'target_date', 'monthly_cents', 'budget_id', 'category_name', 'notes', 'asset_id'])]
 class SavingsGoal extends Model
 {
     /** @use HasFactory<SavingsGoalFactory> */
@@ -18,13 +18,19 @@ class SavingsGoal extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['target_cents' => 'integer', 'opening_cents' => 'integer', 'monthly_cents' => 'integer', 'start_date' => 'immutable_date', 'target_date' => 'immutable_date'];
+        return ['asset_id' => 'integer', 'target_cents' => 'integer', 'opening_cents' => 'integer', 'monthly_cents' => 'integer', 'start_date' => 'immutable_date', 'target_date' => 'immutable_date'];
     }
 
     /** @return BelongsTo<User, $this> */
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /** @return BelongsTo<Asset, $this> */
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Asset::class, 'asset_id');
     }
 
     /** @return HasMany<SavingsContribution, $this> */

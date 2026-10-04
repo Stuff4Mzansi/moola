@@ -15,7 +15,7 @@ class SavingsWorkspace
     public function build(User $user): array
     {
         $today = CarbonImmutable::today();
-        $goals = SavingsGoal::query()->where('user_id', $user->id)->with(['contributions' => fn (HasMany $query): HasMany => $query->whereDate('date', '<=', $today)->orderByDesc('date')->orderByDesc('id'), 'budget'])->orderBy('name')->get();
+        $goals = SavingsGoal::query()->where('user_id', $user->id)->with(['contributions' => fn (HasMany $query): HasMany => $query->with('account')->whereDate('date', '<=', $today)->orderByDesc('date')->orderByDesc('id'), 'budget', 'account'])->orderBy('name')->get();
         $rows = $goals->map(function (SavingsGoal $goal) use ($today): array {
             $saved = $goal->opening_cents + $goal->contributions->sum('amount_cents');
             $remaining = max(0, $goal->target_cents - $saved);

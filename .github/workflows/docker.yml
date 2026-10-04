@@ -1,0 +1,68 @@
+name: Docker
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the tested image to GitHub Container Registry
+        type: boolean
+        default: false
+      version:
+        description: Image version tag (for example 1.0.0)
+        type: string
+        default: dev
+permissions:
+  contents: read
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate and build
+        run: |
+          docker compose config --quiet
+          docker compose build --pull
+      - name: Test persistent first-run installation
+        run: |
+          docker compose up -d --no-build
+          node tests/docker-smoke.mjs
+      - name: Diagnostics and cleanup
+        if: always()
+        run: |
+          docker compose logs --no-color
+          docker compose down --volumes
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image name
+        id: image
+        env:
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]
+          echo "tag=ghcr.io/${REPOSITORY,,}:$VERSION" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: production
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.image.outputs.tag }}

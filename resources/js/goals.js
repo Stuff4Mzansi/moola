@@ -15,8 +15,22 @@ document.addEventListener('DOMContentLoaded', () => {
         fill(form, data);
         form.elements.namedItem('_method').value = data.method || (data.action ? 'PUT' : 'POST');
         ['opening', 'start_date'].forEach((name) => { form.elements.namedItem(name).readOnly = Boolean(data.has_history); });
+        form.dataset.originalAccountId = String(data.original_asset_id ?? data.asset_id ?? '');
+        confirmAccountChange();
         goalDialog.showModal();
     }
+    function confirmAccountChange() {
+        const form = goalDialog.querySelector('form');
+        const account = form.elements.namedItem('asset_id');
+        if (account && form.dataset.originalAccountId && String(account.value) !== form.dataset.originalAccountId) {
+            form.dataset.confirm = 'Change the account holding this goal? Its protected reserve will move or be released. Account balances stay unchanged; record any actual transfer separately.';
+            form.dataset.confirmTitle = 'Change savings account?';
+            form.dataset.confirmLabel = 'Save change';
+        } else {
+            delete form.dataset.confirm;
+        }
+    }
+    goalDialog.querySelector('form').elements.namedItem('asset_id')?.addEventListener('change', confirmAccountChange);
     function updateSource() {
         const form = contributionForm;
         const source = form.elements.namedItem('source').value;
@@ -30,6 +44,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const selected = [...transaction.options].find((option) => option.value === transaction.value);
             if (selected?.dataset.amount) fill(form, { amount: selected.dataset.amount, date: selected.dataset.date });
         }
+        const origin = form.elements.namedItem('money_origin');
+        if (origin) {
+            const hasAccount = Boolean(form.dataset.accountId);
+            form.querySelector('[data-money-origin]').hidden = !hasAccount;
+            origin.disabled = !hasAccount;
+            form.querySelector('[data-account-hint]').textContent = `${form.dataset.accountName || 'Linked account'}: ` + (origin.value === 'new'
+                ? 'Increases the account balance and goal reserve using this amount and date. Choose this only when the money is not already included in its balance.'
+                : 'Protects money already held in the account. Its balance stays unchanged.');
+        }
         form.querySelector('[data-contribution-hint]').textContent = form.dataset.linked === 'true'
             ? 'Saving updates the linked budget expense too.'
             : existing ? 'Attach this expense without creating another. Its existing amount and date are used.'
@@ -41,6 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
         form.reset();
         form.action = data.action;
         form.dataset.linked = data.linked ? 'true' : 'false';
+        form.dataset.accountId = String(data.contribution_asset_id || data.asset_id || '');
+        form.dataset.accountName = data.contribution_account_name || data.account_name || '';
         const source = form.elements.namedItem('source');
         [...source.options].forEach((option) => {
             option.disabled = data.linked ? option.value !== 'budget' : option.value !== 'goal' && !data.budget_id;
@@ -50,11 +75,12 @@ document.addEventListener('DOMContentLoaded', () => {
             option.hidden = Boolean(option.dataset.budgetId && (option.dataset.budgetId !== String(data.budget_id) || option.dataset.category !== data.category_name));
             option.disabled = option.hidden;
         });
-        fill(form, { ...data, source: data.linked ? 'budget' : data.source || (data.budget_id ? 'budget' : 'goal') });
+        fill(form, { ...data, money_origin: data.money_origin || 'existing', source: data.linked ? 'budget' : data.source || (data.budget_id ? 'budget' : 'goal') });
         if (!data.request_id && globalThis.crypto?.randomUUID) form.elements.namedItem('request_id').value = crypto.randomUUID();
         updateSource();
         contributionDialog.showModal();
     }
+    contributionForm.elements.namedItem('money_origin')?.addEventListener('change', updateSource);
     contributionForm.elements.namedItem('source').addEventListener('change', updateSource);
     contributionForm.elements.namedItem('transaction_id').addEventListener('change', updateSource);
     page.addEventListener('click', (event) => {

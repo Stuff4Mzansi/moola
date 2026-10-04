@@ -13,8 +13,8 @@ function goalsHarness(reopen = null) {
         const hint = { textContent: '' };
         return { dataset: { createUrl: '/goals' }, elements: { namedItem(name) { return fields.get(name); } }, fields, label, hint, reset() { fields.forEach((field) => { field.value = ''; }); }, querySelector(selector) { return selector === '[data-existing-label]' ? label : hint; } };
     }
-    const goalForm = form(['_method', 'goal_id', 'name', 'kind', 'target', 'opening', 'start_date', 'target_date', 'monthly', 'category_id', 'notes']);
-    const contributionForm = form(['goal_id', 'contribution_id', 'request_id', 'amount', 'date', 'source', 'transaction_id', 'notes']);
+    const goalForm = form(['_method', 'goal_id', 'name', 'kind', 'target', 'opening', 'start_date', 'target_date', 'monthly', 'category_id', 'asset_id', 'notes']);
+    const contributionForm = form(['goal_id', 'contribution_id', 'request_id', 'amount', 'date', 'source', 'transaction_id', 'money_origin', 'notes']);
     contributionForm.fields.get('source').options = ['goal', 'budget', 'existing'].map((value) => ({ value }));
     contributionForm.fields.get('transaction_id').options = [
         { value: '', dataset: {} },
@@ -89,4 +89,41 @@ test('validation errors reopen the right form with entered values and request to
     assert.equal(contributionDialog.open, true);
     assert.equal(contributionForm.fields.get('amount').value, '2.001');
     assert.equal(contributionForm.fields.get('request_id').value, 'keep-token');
+});
+
+
+test('linked account contributions default to existing money and reset origin for each new entry', () => {
+    const { click, contributionForm, goalForm } = goalsHarness();
+    click('goalEdit', { action: '/goals/1', asset_id: 4 });
+    assert.equal(goalForm.fields.get('asset_id').value, 4);
+    click('contributionEdit', { action: '/goals/1/contributions', contribution_id: 2, asset_id: 4, money_origin: 'new' });
+    assert.equal(contributionForm.fields.get('money_origin').value, 'new');
+    assert.equal(contributionForm.fields.get('money_origin').disabled, false);
+    click('goalContribute', { action: '/goals/1/contributions', asset_id: 4 });
+    assert.equal(contributionForm.fields.get('money_origin').value, 'existing');
+    click('goalContribute', { action: '/goals/2/contributions' });
+    assert.equal(contributionForm.fields.get('money_origin').disabled, true);
+    assert.equal(contributionForm.dataset.accountId, '');
+});
+
+test('account contribution validation retains money origin and its historical account', () => {
+    const { contributionForm } = goalsHarness({ kind: 'contribution', data: { action: '/goals/1', asset_id: 4, contribution_asset_id: 2, money_origin: 'new', amount: '1.001' } });
+    assert.equal(contributionForm.fields.get('money_origin').value, 'new');
+    assert.equal(contributionForm.dataset.accountId, '2');
+    assert.equal(contributionForm.fields.get('amount').value, '1.001');
+});
+
+
+test('changing or unlinking a goal account requires confirmation and new goals do not', () => {
+    const { click, goalForm } = goalsHarness();
+    click('goalEdit', { action: '/goals/1', asset_id: 4, original_asset_id: 4 });
+    assert.equal(goalForm.dataset.confirm, undefined);
+    goalForm.fields.get('asset_id').value = '';
+    goalForm.fields.get('asset_id').change();
+    assert.match(goalForm.dataset.confirm, /reserve/);
+    goalForm.fields.get('asset_id').value = 4;
+    goalForm.fields.get('asset_id').change();
+    assert.equal(goalForm.dataset.confirm, undefined);
+    click('goalNew');
+    assert.equal(goalForm.dataset.confirm, undefined);
 });

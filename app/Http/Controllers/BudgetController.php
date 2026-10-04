@@ -11,6 +11,7 @@ use App\Models\BudgetCategory;
 use App\Models\BudgetPeriod;
 use App\Models\SavingsGoal;
 use App\Models\User;
+use App\SavingsAccounts;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -159,7 +160,7 @@ class BudgetController extends Controller
     public function action(BudgetActionRequest $request, BudgetPeriod $period, string $action): JsonResponse|RedirectResponse
     {
         return Cache::store('database')->lock('budget:'.$period->budget_id, 30)->block(5, function () use ($request, $period, $action): JsonResponse|RedirectResponse {
-            return DB::transaction(function () use ($request, $period, $action): JsonResponse|RedirectResponse {
+            return app(SavingsAccounts::class)->locked($period->budget->user_id, function () use ($request, $period, $action): JsonResponse|RedirectResponse {
                 $period = BudgetPeriod::query()->findOrFail($period->id);
                 Gate::authorize(in_array($action, ['member-save', 'settings-save'], true) ? 'share' : 'update', $period->budget);
                 if ($action === 'period-preview') {
@@ -258,7 +259,7 @@ class BudgetController extends Controller
                     case 'income-save':
                         $income = $request->filled('id') ? $period->incomes()->findOrFail($request->integer('id')) : $period->incomes()->make();
                         $received = BudgetMoney::cents($request->input('received_amount'));
-                        $income->fill(['name' => $request->input('name'), 'expected_cents' => BudgetMoney::cents($request->input('expected_amount')), 'received_cents' => $received, 'received_date' => $received > 0 ? $request->input('received_date') : null])->save();
+                        $income->fill(['name' => $request->input('name'), 'expected_cents' => BudgetMoney::cents($request->input('expected_amount')), 'expected_date' => $request->input('expected_date'), 'received_cents' => $received, 'received_date' => $received > 0 ? $request->input('received_date') : null])->save();
                         break;
                     case 'income-remove':
                         $period->incomes()->findOrFail($request->integer('id'))->delete();

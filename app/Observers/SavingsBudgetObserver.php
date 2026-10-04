@@ -34,6 +34,12 @@ class SavingsBudgetObserver
         }
         $entry ??= new SavingsContribution(['budget_transaction_id' => $transaction->id]);
         $entry->savings_goal_id = $transaction->savings_goal_id;
+        if ($transaction->savingsMoneyOrigin !== null) {
+            $entry->money_origin = $transaction->savingsMoneyOrigin;
+            $entry->asset_id = $transaction->savingsAccountId;
+        } elseif (! $entry->exists) {
+            $entry->asset_id = SavingsGoal::query()->find($transaction->savings_goal_id)?->asset_id;
+        }
         $entry->fill(['amount_cents' => $transaction->amount_cents, 'date' => $transaction->date, 'notes' => $transaction->description, 'budget_period_name' => $transaction->period->name]);
         $entry->deleted_at = null;
         $entry->save();

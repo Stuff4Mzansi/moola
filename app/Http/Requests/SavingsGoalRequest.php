@@ -19,6 +19,6 @@ class SavingsGoalRequest extends FormRequest
     /** @return array<string, mixed> */
     public function rules(): array
     {
-        return ['name' => ['required', 'string', 'max:100'], 'kind' => ['required', 'in:custom,emergency,holiday,deposit'], 'target' => BudgetMoney::rules(true), 'opening' => BudgetMoney::rules(), 'start_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:1900-01-01', 'before_or_equal:today'], 'target_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date', 'before_or_equal:2100-12-31'], 'monthly' => BudgetMoney::rules(), 'category_id' => ['nullable', 'integer'], 'notes' => ['nullable', 'string', 'max:500']];
+        return ['name' => ['required', 'string', 'max:100'], 'kind' => ['required', 'in:custom,emergency,holiday,deposit'], 'target' => BudgetMoney::rules(true), 'opening' => BudgetMoney::rules(), 'start_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:1900-01-01', 'before_or_equal:today'], 'target_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date', 'before_or_equal:2100-12-31'], 'monthly' => BudgetMoney::rules(), 'asset_id' => ['nullable', 'integer'], 'category_id' => ['nullable', 'integer'], 'notes' => ['nullable', 'string', 'max:500']];
     }
 }

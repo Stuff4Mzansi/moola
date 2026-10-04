@@ -65,7 +65,9 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'Africa/Johannesburg'),
+
+    'data_directory' => env('MOOLA_DATA_DIR'),
 
     /*
     |--------------------------------------------------------------------------

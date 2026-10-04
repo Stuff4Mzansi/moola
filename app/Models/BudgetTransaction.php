@@ -14,6 +14,10 @@ class BudgetTransaction extends Model
 {
     public ?bool $interestIsEstimated = null;
 
+    public ?string $savingsMoneyOrigin = null;
+
+    public ?int $savingsAccountId = null;
+
     /** @use HasFactory<BudgetTransactionFactory> */
     use HasFactory, SoftDeletes;
 
