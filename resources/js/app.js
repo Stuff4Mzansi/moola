@@ -1,6 +1,8 @@
 import './subscription-analytics';
 import './budgets';
 import './budget-trends';
+import './debts';
+import './goals';
 import './confirm-actions';
 
 document.addEventListener('DOMContentLoaded', () => {

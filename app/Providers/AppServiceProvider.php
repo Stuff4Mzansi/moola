@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\BudgetTransaction;
 use App\Models\User;
+use App\Observers\DebtBudgetPaymentObserver;
+use App\Observers\SavingsBudgetObserver;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -21,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        BudgetTransaction::observe(DebtBudgetPaymentObserver::class);
+        BudgetTransaction::observe(SavingsBudgetObserver::class);
         Gate::define('users.manage', fn (User $user): bool => $user->isAdmin());
         Gate::define('users.assign-role', fn (User $actor, User $target): bool => $actor->isAdmin() && ! $target->isSuperAdmin() && ! $actor->is($target)
         );

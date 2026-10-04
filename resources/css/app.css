@@ -14,10 +14,35 @@
    themes: light --default, dark --prefersdark;
 }
 
-
 :root,
 [data-theme] {
     --radius-selector: var(--radius-sm);
     --radius-field: var(--radius-sm);
     --radius-box: var(--radius-sm);
+}
+
+@layer utilities {
+    @layer daisyui.l1.l2.l3 {
+        .btn {
+            --size: calc(var(--size-field, 0.25rem) * 8);
+            --btn-p: 0.75rem;
+            --fontsize: 0.75rem;
+        }
+
+        .input {
+            --in-size-mul: 8;
+            --font-size-min: 0.75rem;
+            --spin-my: -2;
+        }
+
+        .select {
+            --sl-size-mul: 8;
+            --font-size-min: 0.75rem;
+            --option-px: 2.5;
+        }
+
+        .textarea {
+            --font-size-min: 0.75rem;
+        }
+    }
 }

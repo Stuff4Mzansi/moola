@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\BudgetDashboard;
 use App\BudgetTrends;
+use App\DebtPayoff;
+use App\DebtWorkspace;
 use App\Models\Subscription;
+use App\SavingsWorkspace;
 use App\SubscriptionAnalytics;
 use App\SubscriptionStatus;
 use Carbon\CarbonImmutable;
@@ -16,7 +19,7 @@ class DashboardController extends Controller
     /**
      * Handle the incoming request.
      */
-    public function __invoke(Request $request, SubscriptionAnalytics $subscriptionAnalytics, BudgetDashboard $budgetDashboard, BudgetTrends $budgetTrends): View
+    public function __invoke(Request $request, SubscriptionAnalytics $subscriptionAnalytics, BudgetDashboard $budgetDashboard, BudgetTrends $budgetTrends, DebtWorkspace $debtWorkspace, DebtPayoff $debtPayoff, SavingsWorkspace $savingsWorkspace): View
     {
         $subscriptions = $request->user()->subscriptions()->get();
         $today = CarbonImmutable::today();
@@ -30,7 +33,13 @@ class DashboardController extends Controller
             ->sortBy(fn (array $renewal): string => $renewal['date']->toDateString())
             ->take(5)->values();
 
+        $debtOverview = $debtWorkspace->build($request->user());
+        $debtPlan = $debtPayoff->simulate($debtOverview['rows']->map(fn (array $row): array => ['id' => $row['debt']->id, 'name' => $row['debt']->name, 'balance' => $row['balance'], 'rate' => $row['debt']->annual_rate_basis_points, 'minimum' => $row['debt']->minimum_payment_cents])->all(), 0, 'avalanche');
+
         return view('dashboard.index', [
+            'savingsOverview' => $savingsWorkspace->build($request->user()),
+            'debtOverview' => $debtOverview,
+            'debtPlan' => $debtPlan,
             'budgetOverview' => $budgetDashboard->build($request->user()),
             'budgetTrends' => $budgetTrends->build($request->user()),
             'analytics' => $analytics,

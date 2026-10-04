@@ -9,6 +9,7 @@ use App\Http\Requests\BudgetActionRequest;
 use App\Models\Budget;
 use App\Models\BudgetCategory;
 use App\Models\BudgetPeriod;
+use App\Models\SavingsGoal;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -174,6 +175,7 @@ class BudgetController extends Controller
                         break;
                     case 'recurring-save':
                         $expense = $request->filled('id') ? $period->budget->recurringExpenses()->findOrFail($request->integer('id')) : $period->budget->recurringExpenses()->make();
+                        abort_if($expense->debt_id !== null, 422, 'Manage this linked schedule on the Debts page.');
                         $category = $period->categories()->findOrFail($request->integer('category_id'));
                         $expense->fill([...$request->safe()->only(['name', 'billing_frequency', 'start_date', 'end_date', 'is_active']), 'category_name' => $category->name, 'amount_cents' => BudgetMoney::cents($request->input('amount'))])->save();
                         $period->budget->periods()->where('id', '!=', $period->id)->increment('version');
@@ -181,7 +183,9 @@ class BudgetController extends Controller
                         $message = 'Recurring schedule saved for this budget and its future periods.';
                         break;
                     case 'recurring-remove':
-                        $period->budget->recurringExpenses()->findOrFail($request->integer('id'))->delete();
+                        $expense = $period->budget->recurringExpenses()->findOrFail($request->integer('id'));
+                        abort_if($expense->debt_id !== null, 422, 'Unlink this schedule on the Debts page.');
+                        $expense->delete();
                         $period->budget->periods()->where('id', '!=', $period->id)->increment('version');
                         app(BudgetRecurringExpenses::class)->sync($period, true);
                         $message = 'Recurring schedule removed. Recorded payments were kept.';
@@ -235,6 +239,7 @@ class BudgetController extends Controller
                         }
                         if ($category->exists && $category->name !== $request->input('name')) {
                             $period->budget->recurringExpenses()->where('category_name', $category->name)->update(['category_name' => $request->input('name')]);
+                            SavingsGoal::query()->where('budget_id', $period->budget_id)->where('category_name', $category->name)->update(['category_name' => $request->input('name')]);
                         }
                         $category->name = $request->input('name');
                         $category->allocated_cents = $category->kind === 'subscriptions' && $request->boolean('automatic') ? null : BudgetMoney::cents($request->input('amount'));

@@ -5,6 +5,8 @@ namespace App;
 use App\Models\BudgetPeriod;
 use App\Models\BudgetRecurringExpense;
 use App\Models\BudgetTransaction;
+use App\Models\Debt;
+use App\Models\DebtPayment;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -13,6 +15,9 @@ class BudgetRecurringExpenses
     /** @return array{amount_cents: int, history_months: int, history_payments: int} */
     public function estimate(BudgetRecurringExpense $expense, CarbonImmutable $date): array
     {
+        if ($expense->debt_id !== null) {
+            return ['amount_cents' => $expense->amount_cents, 'history_months' => 0, 'history_payments' => 0];
+        }
         $until = $date->startOfMonth()->min(CarbonImmutable::today()->startOfMonth());
         $payments = BudgetTransaction::query()->whereHas('recurringCharge', fn (Builder $query): Builder => $query->where('budget_recurring_expense_id', $expense->id))->whereDate('date', '>=', $until->subMonths(3)->toDateString())->whereDate('date', '<', $until->toDateString())->get(['amount_cents', 'date']);
 
@@ -26,6 +31,12 @@ class BudgetRecurringExpenses
         $expected = [];
         $estimates = [];
         foreach ($period->budget->recurringExpenses()->where('is_active', true)->get() as $expense) {
+            if ($expense->debt_id !== null) {
+                $debt = Debt::query()->with('payments')->find($expense->debt_id);
+                if ($debt === null || $debt->payments->sum(fn (DebtPayment $payment): int => $payment->amount_cents - $payment->interest_cents) >= $debt->opening_balance_cents) {
+                    continue;
+                }
+            }
             $category = $categories->get($expense->category_name) ?? $categories->get('Other');
             if ($category === null) {
                 continue;
@@ -34,7 +45,7 @@ class BudgetRecurringExpenses
             foreach ((new RecurringSchedule($expense->billing_frequency, $expense->start_date))->between($period->start_date, $until) as $date) {
                 $estimateKey = $expense->id.'|'.$date->startOfMonth()->min(CarbonImmutable::today()->startOfMonth())->toDateString();
                 $estimates[$estimateKey] ??= $this->estimate($expense, $date);
-                $expected[] = ['budget_recurring_expense_id' => $expense->id, 'budget_category_id' => $category->id, 'name' => $expense->name, 'scheduled_date' => $date->toDateString(), ...$estimates[$estimateKey]];
+                $expected[] = ['debt_id' => $expense->debt_id, 'budget_recurring_expense_id' => $expense->id, 'budget_category_id' => $category->id, 'name' => $expense->name, 'scheduled_date' => $date->toDateString(), ...$estimates[$estimateKey]];
             }
         }
 

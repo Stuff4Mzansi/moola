@@ -10,6 +10,8 @@
         </div>
         @include('dashboard.budget-trends')
         @include('dashboard.budgets')
+        @include('dashboard.debts')
+    @include('dashboard.goals')
         <section class="space-y-5" aria-labelledby="dashboard-subscriptions-title">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <h2 id="dashboard-subscriptions-title" class="text-xl font-semibold">Subscription overview</h2>
@@ -40,7 +42,7 @@
                             </div>
                             @if($analytics['largestSubscriptions'])
                                 @php $largestCost = $analytics['largestSubscriptions'][0]; @endphp
-                                <div class="rounded-sm bg-base-200 p-4"><p class="text-xs opacity-60">Largest recurring cost</p><p class="mt-1 text-sm"><a class="link link-hover font-semibold" href="{{ route('subscriptions.show', $largestCost['id']) }}">{{ $largestCost['name'] }}</a> Â· ZAR {{ number_format($largestCost['monthly_cost_cents'] / 100, 2) }}/month equivalent</p></div>
+                                <div class="rounded-sm bg-base-200 p-4"><p class="text-xs opacity-60">Largest recurring cost</p><p class="mt-1 text-sm"><a class="link link-hover font-semibold" href="{{ route('subscriptions.show', $largestCost['id']) }}">{{ $largestCost['name'] }}</a> · ZAR {{ number_format($largestCost['monthly_cost_cents'] / 100, 2) }}/month equivalent</p></div>
                             @endif
                             <a class="link link-primary self-start text-sm" href="{{ route('subscriptions.index') }}">Explore forecasts and potential savings</a>
                         </div>
