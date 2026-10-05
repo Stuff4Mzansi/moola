@@ -42,7 +42,7 @@ docker build --target production -t moola:local .
 
 Alternatively, replace `image: moola:local` with your published image and version. This repository does not assume an image has already been published and does not add the app to Runtipi's official store.
 
-For a registry image, `.github/workflows/docker.yml` provides a manual GitHub Actions publish option. Push the complete application to your GitHub repository, run the **Docker** workflow with **publish** checked and a version such as `1.0.0`, and use `ghcr.io/<owner>/<repository>:1.0.0`. Publication happens only when explicitly selected. Set the package visibility to public for UI installations without registry credentials. The workflow tests the amd64 container before building and publishing amd64/arm64 images; ARM runtime still needs verification on your hardware.
+For a registry image, `.github/workflows/docker.yml` provides a manual GitHub Actions publish option. Push the complete application to your GitHub repository, run the **Docker** workflow with **publish** checked and a version such as `1.0.0`, and use `ghcr.io/<owner>/<repository>:1.0.0`. Publication happens when explicitly selected or when a release tag such as `v1.0.0` is pushed. Release tags publish the matching image version (`1.0.0`) after the container smoke tests pass. Set the package visibility to public for UI installations without registry credentials. The workflow tests the amd64 container before building and publishing amd64/arm64 images; ARM runtime still needs verification on your hardware.
 
 Other managers supporting Compose can use `compose.image.yaml` with `MOOLA_IMAGE` set to a real published image. The source-build `compose.yaml` can also be used by managers with build support.
 
