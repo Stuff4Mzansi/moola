@@ -4,6 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="light dark">
+        @include('layouts.favicons')
         <title>@yield('title') | {{ config('app.name') }}</title>
         @fonts
         @include('layouts.theme')
@@ -34,7 +35,7 @@
                         </button>
                         <span class="hidden h-5 w-px bg-base-300 sm:block" aria-hidden="true"></span>
                         <div class="flex min-w-0 items-center gap-2 text-sm">
-                            <a class="hidden shrink-0 font-semibold tracking-tight text-base-content/60 transition-colors hover:text-primary sm:inline" href="{{ route('dashboard') }}">Moola</a>
+                            <a class="flex shrink-0 items-center gap-2 font-semibold tracking-tight text-base-content/60 transition-colors hover:text-primary" href="{{ route('dashboard') }}" aria-label="Moola home"><span class="hidden sm:inline">Moola</span></a>
                             <x-lucide-chevron-right class="hidden size-3 shrink-0 text-base-content/30 sm:block" aria-hidden="true" />
                             <span class="truncate font-semibold tracking-tight">@yield('title', 'Dashboard')</span>
                         </div>
@@ -78,7 +79,7 @@
                 <aside id="app-sidebar" class="flex min-h-full flex-col border-r border-base-300/70 bg-base-100 is-drawer-close:w-14 is-drawer-open:w-64" aria-label="Main navigation">
                     <div class="flex h-14 shrink-0 items-center border-b border-base-300/70 px-3">
                         <a class="flex min-w-0 items-center gap-3 no-underline" href="{{ route('dashboard') }}" aria-label="Moola home">
-                            <span class="flex size-8 shrink-0 items-center justify-center rounded-sm border border-primary/15 bg-primary/10 text-sm font-bold text-primary" aria-hidden="true">M</span>
+                            <img src="{{ asset('moola-logo.png') }}?v=moola-wallet-2" alt="" width="32" height="32" class="size-8 shrink-0 rounded-sm" aria-hidden="true">
                             <span class="is-drawer-close:hidden"><span class="block text-sm font-semibold tracking-tight">Moola</span><span class="mt-0.5 block text-[10px] leading-tight text-base-content/50">Finance workspace</span></span>
                         </a>
                     </div>

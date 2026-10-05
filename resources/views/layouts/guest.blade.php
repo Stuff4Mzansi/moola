@@ -4,6 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="light dark">
+        @include('layouts.favicons')
         <title>@yield('title') · {{ config('app.name') }}</title>
         @include('layouts.theme')
         @fonts
@@ -13,8 +14,8 @@
         <main class="flex min-h-dvh items-center justify-center px-4 py-8 sm:py-12">
             <div class="w-full max-w-md">
                 <div class="mb-7 flex items-center justify-center gap-3">
-                    <span class="flex size-10 items-center justify-center rounded-sm border border-primary/15 bg-primary/10 text-lg font-bold text-primary" aria-hidden="true">M</span>
-<span><span class="block text-xl font-semibold tracking-tight">Moola</span><span class="mt-0.5 block text-[11px] text-base-content/50">Finance workspace</span></span>
+                    <img src="{{ asset('moola-logo.png') }}?v=moola-wallet-2" alt="" width="40" height="40" class="size-10 shrink-0 rounded-sm" aria-hidden="true">
+                    <span><span class="block text-xl font-semibold tracking-tight">Moola</span><span class="mt-0.5 block text-[11px] text-base-content/50">Finance workspace</span></span>
                 </div>
                 <div class="card rounded-sm border border-base-300 bg-base-100">
                     <div class="card-body gap-5 p-6 sm:p-7">
