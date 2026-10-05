@@ -1,3 +1,7 @@
+# Repository UI requirements
+
+Before making any UI changes, read and follow the **Required UI design principles** in [AGENTS.md](AGENTS.md). They are the shared source of truth for compact layouts, equal-height components within rows, responsive behavior, chart styling, and accessibility. Preserve this reference when updating generated framework instructions.
+
 <laravel-boost-guidelines>
 # Laravel Application
 

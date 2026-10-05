@@ -1,3 +1,30 @@
+# Required UI design principles
+
+These rules apply to every agent making UI changes anywhere in this repository, including Blade views, reusable components, CSS, JavaScript, charts, and dashboard widgets. Follow them unless the user explicitly requests a different design for the current task. Read this section before making UI changes; preserve it when updating generated framework instructions.
+
+## Compact, consistent, readable layouts
+
+- Optimize screen real estate while communicating the same information. Use compact summary strips, efficient tables or rows, small section headings, and restrained padding and gaps. Avoid oversized titles, figures, icons, or repeated cards that push useful content down the page.
+- Use the budget and subscription views as the visual references: `resources/views/budgets/overview.blade.php`, `summary.blade.php`, `group-analytics.blade.php`, and `resources/views/subscriptions/index.blade.php`, `analytics.blade.php`, `category-chart.blade.php`.
+- Components sharing a grid row MUST have equal outer heights. Use grid stretching (`items-stretch` or the default stretch alignment) and appropriate flex layouts for their contents. Do not introduce `items-start`, `self-start`, or content-sized wrappers that break equal-height cards. Match heights within each responsive row rather than imposing one fixed height on every card; stacked mobile components should size naturally.
+- Align shared headings, summary values, and actions consistently across neighboring components. Preserve equal-height behavior when content wraps, lists grow, or expandable sections open.
+- Keep layouts usable for both small and large collections. Prefer bounded, scrollable tables and legends with sticky table headers over an expanding grid of cards. Retain access to every item; do not hide or truncate data to achieve compactness.
+- Put core information and frequent actions first. Use clearly labelled expandable sections for optional detail and planning tools when appropriate.
+
+## Visual language and accessibility
+
+- Reuse existing daisyUI components and Lucide icons before introducing custom alternatives. Prefer compact component sizes, slim progress bars, subtle borders, and existing theme tokens.
+- Keep financial meaning consistent: green for received income, red or orange for recorded spending, and primary color for navigation or highlights. Planned limits use dotted or dashed lines; recorded-spending curves should be smooth without changing the underlying values. Distinguish series with labels and line styles as well as color.
+- Make charts understandable at a glance with clear labels, units, legends, and useful comparisons. Preserve exact amounts and accessible descriptions or detailed figures.
+- Compactness must preserve readability, contrast, visible focus states, keyboard access, descriptive labels, and usable touch targets. Scrollable regions need an accessible name and keyboard access. Allow long names and large amounts to wrap or scroll without overlapping or clipping.
+- Use tabular numerals for comparable amounts. Keep explanatory copy concise while retaining distinctions between actual payments, forecasts, planned amounts, and estimates.
+
+## UI review before completion
+
+- Check narrow and wide layouts, short and long content, empty states, few and many items, and open expandable sections. Confirm equal heights for components sharing a row and that all information and actions remain accessible.
+- Run the frontend build when styles change and relevant existing tests when behavior changes. Inspect the rendered UI when a preview is available; state any visual verification limitation accurately.
+- A UI change is incomplete if it regresses compactness or equal-height row alignment without an explicit user request.
+
 <laravel-boost-guidelines>
 === foundation rules ===
 
