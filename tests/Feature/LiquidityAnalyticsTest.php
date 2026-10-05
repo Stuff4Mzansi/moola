@@ -17,6 +17,7 @@ use App\Models\LiquidityPreference;
 use App\Models\SavingsGoal;
 use App\Models\Subscription;
 use App\Models\User;
+use App\SubscriptionStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -114,6 +115,34 @@ test('same day ordering identifies intraday gaps while scenario forecasts never 
     $this->get(route('net-worth.index', ['tab' => 'liquidity', 'extra_reserve' => '100', 'purchase' => '50', 'purchase_date' => '2026-10-05']))->assertOk();
     expect(AssetReserve::query()->count())->toBe(0)->and($this->asset->valuations()->count())->toBe(1);
     $this->getJson(route('net-worth.index', ['horizon' => 30, 'purchase' => '50', 'purchase_date' => '2026-11-20']))->assertUnprocessable()->assertJsonValidationErrors('purchase_date');
+});
+
+test('liquidity immediately excludes paused and cancelled subscriptions with unpaid budget snapshots', function (SubscriptionStatus $status) {
+    $subscription = Subscription::factory()->create(['user_id' => $this->owner->id, 'next_billing_date' => '2026-10-10']);
+    BudgetCommitment::factory()->create(['budget_period_id' => $this->period->id, 'subscription_id' => $subscription->id, 'scheduled_date' => '2026-10-10']);
+    $subscription->update(['status' => $status]);
+
+    $this->get(route('net-worth.index', ['tab' => 'liquidity']))->assertOk()
+        ->assertViewHas('liquidity', fn (array $data): bool => $data['events']->where('source', 'subscription')->isEmpty());
+})->with([SubscriptionStatus::Paused, SubscriptionStatus::Cancelled]);
+
+test('liquidity uses the latest subscription amount and name without requiring a budget visit', function () {
+    $subscription = Subscription::factory()->create(['user_id' => $this->owner->id, 'name' => 'Old plan', 'amount_cents' => 10000, 'next_billing_date' => '2026-10-10']);
+    BudgetCommitment::factory()->create(['budget_period_id' => $this->period->id, 'subscription_id' => $subscription->id, 'name' => 'Old plan', 'amount_cents' => 10000, 'scheduled_date' => '2026-10-10']);
+    $subscription->update(['name' => 'New plan', 'amount_cents' => 15000]);
+
+    $data = app(LiquidityAnalytics::class)->build($this->owner);
+    expect($data['events']->where('source', 'subscription')->sole())->toMatchArray(['name' => 'New plan', 'amount' => 15000, 'date' => '2026-10-10']);
+    expect($data['daily']->last()['closing'])->toBe(84000);
+});
+
+test('rescheduling a subscription does not forecast both the old and new renewal', function () {
+    $subscription = Subscription::factory()->create(['user_id' => $this->owner->id, 'amount_cents' => 10000, 'next_billing_date' => '2026-10-10']);
+    BudgetCommitment::factory()->create(['budget_period_id' => $this->period->id, 'subscription_id' => $subscription->id, 'amount_cents' => 10000, 'scheduled_date' => '2026-10-10']);
+    $subscription->update(['next_billing_date' => '2026-10-15']);
+
+    $data = app(LiquidityAnalytics::class)->build($this->owner);
+    expect($data['events']->where('source', 'subscription')->sole())->toMatchArray(['date' => '2026-10-15', 'amount' => 10000]);
 });
 
 test('runway uses accessible emergency reserves and essentials plus debt minimums', function () {

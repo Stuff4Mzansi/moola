@@ -78,23 +78,22 @@ class LiquidityAnalytics
         $commitments = BudgetCommitment::query()->whereIn('subscription_id', $zarSubscriptions)->whereIn('budget_period_id', BudgetPeriod::query()->whereIn('budget_id', $budgets->pluck('id'))->select('id'))->whereDate('scheduled_date', '>=', $today->subDays(90))->whereDate('scheduled_date', '<=', $until)->with('transaction')->orderBy('id')->get();
         $paidSubscriptions = $commitments->filter(fn (BudgetCommitment $charge): bool => $charge->transaction !== null)->keyBy(fn (BudgetCommitment $charge): string => $charge->subscription_id.'|'.$charge->scheduled_date->toDateString());
         $selectedPeriods = BudgetPeriod::query()->whereIn('budget_id', $budgetIds)->pluck('id');
-        foreach ($commitments->whereIn('budget_period_id', $selectedPeriods)->where('is_current', true) as $charge) {
-            $key = $charge->subscription_id.'|'.$charge->scheduled_date->toDateString();
+        $selectedCommitments = $commitments->whereIn('budget_period_id', $selectedPeriods)->where('is_current', true)->keyBy(fn (BudgetCommitment $charge): string => $charge->subscription_id.'|'.$charge->scheduled_date->toDateString());
+        foreach ($selectedCommitments as $key => $charge) {
             if ($paidSubscriptions->has($key)) {
                 continue;
             }
             if ($charge->scheduled_date->lt($today)) {
                 $overdue++;
-
-                continue;
             }
-            $events['subscription:'.$key] = $this->event($charge->scheduled_date, $charge->name, $charge->amount_cents, 'expense', 'subscription', route('budgets.index', ['period' => $charge->budget_period_id, 'tab' => 'subscriptions']));
         }
         foreach (Subscription::query()->where('user_id', $user->id)->where('status', SubscriptionStatus::Active->value)->where('currency', 'ZAR')->get() as $subscription) {
             foreach ($subscription->renewalsBetween($today, $until) as $date) {
                 $key = $subscription->id.'|'.$date->toDateString();
                 if (! $paidSubscriptions->has($key)) {
-                    $events['subscription:'.$key] ??= $this->event($date, $subscription->name, $subscription->amount_cents, 'expense', 'subscription', route('subscriptions.edit', $subscription));
+                    $charge = $selectedCommitments->get($key);
+                    $url = $charge === null ? route('subscriptions.edit', $subscription) : route('budgets.index', ['period' => $charge->budget_period_id, 'tab' => 'subscriptions']);
+                    $events['subscription:'.$key] = $this->event($date, $subscription->name, $subscription->amount_cents, 'expense', 'subscription', $url);
                 }
             }
         }
