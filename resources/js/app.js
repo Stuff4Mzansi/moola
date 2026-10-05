@@ -2,6 +2,8 @@ import './notifications';
 import './subscription-analytics';
 import './budgets';
 import './budget-trends';
+import './category-trends';
+import './dashboard-layout';
 import './debts';
 import './goals';
 import './net-worth';

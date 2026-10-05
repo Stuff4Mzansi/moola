@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\BudgetDashboard;
 use App\BudgetTrends;
+use App\DashboardLayout;
 use App\DebtPayoff;
 use App\DebtWorkspace;
 use App\LiquidityAnalytics;
@@ -42,6 +43,9 @@ class DashboardController extends Controller
         $liquidityOverview = $liquidityAnalytics->build($request->user(), [], $netWorthOverview);
 
         return view('dashboard.index', [
+            'dashboardLayout' => app(DashboardLayout::class)->build($request->user()),
+            'dashboardDefaults' => app(DashboardLayout::class)->defaults($request->user()),
+            'dashboardWidgets' => app(DashboardLayout::class)->widgets($request->user()),
             'liquidityOverview' => $liquidityOverview,
             'netWorthOverview' => $netWorthOverview,
             'savingsOverview' => $savingsWorkspace->build($request->user()),

@@ -6,10 +6,12 @@ use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Auth\SetupController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DashboardLayoutController;
 use App\Http\Controllers\DebtController;
 use App\Http\Controllers\LiquidityController;
 use App\Http\Controllers\NetWorthController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PaymentCalendarController;
 use App\Http\Controllers\SavingsGoalController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SubscriptionController;
@@ -26,6 +28,8 @@ Route::middleware(EnsureAdministratorExists::class)->group(function (): void {
 
     Route::middleware('auth')->group(function (): void {
         Route::get('/', DashboardController::class)->name('dashboard');
+        Route::put('/dashboard/layout', DashboardLayoutController::class)->name('dashboard.layout.update');
+        Route::get('/payment-calendar', PaymentCalendarController::class)->name('payment-calendar.index');
         Route::middleware('can:settings.manage')->group(function (): void {
             Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
             Route::put('/settings/mail', [SettingsController::class, 'update'])->name('settings.mail.update');

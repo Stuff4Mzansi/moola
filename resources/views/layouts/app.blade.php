@@ -88,6 +88,7 @@
                             $sidebarItems = [
                                 ['route' => 'dashboard', 'match' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'layout-dashboard'],
                                 ['route' => 'budgets.index', 'match' => 'budgets.*', 'label' => 'Budget', 'icon' => 'chart-pie'],
+                                ['route' => 'payment-calendar.index', 'match' => 'payment-calendar.*', 'label' => 'Payment calendar', 'icon' => 'calendar-days'],
                                 ['route' => 'subscriptions.index', 'match' => 'subscriptions.*', 'label' => 'Subscriptions', 'icon' => 'repeat'],
                                 ['route' => 'debts.index', 'match' => 'debts.*', 'label' => 'Debts', 'icon' => 'landmark'],
                                 ['route' => 'goals.index', 'match' => 'goals.*', 'label' => 'Savings goals', 'icon' => 'target'],

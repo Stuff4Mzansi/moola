@@ -6,6 +6,7 @@ use App\Models\Budget;
 use App\Models\BudgetCategory;
 use App\Models\BudgetCommitment;
 use App\Models\BudgetGroup;
+use App\Models\BudgetIncome;
 use App\Models\BudgetPeriod;
 use App\Models\BudgetRecurringExpense;
 use App\Models\BudgetTransaction;
@@ -99,5 +100,37 @@ test('single zero allocation periods and future only budgets have honest data wi
 
 test('budget names embedded in chart data cannot terminate its script element', function () {
     $this->budget->update(['name' => '</script><script>alert(1)</script>']);
+    $this->get(route('dashboard'))->assertOk()->assertDontSee('</script><script>alert(1)</script>', false)->assertSee('\\u003C', false);
+});
+
+test('category trend history preserves allocations received income and actual spending for each completed period', function () {
+    $period = BudgetPeriod::factory()->create(['budget_id' => $this->budget->id, 'start_date' => '2026-09-12', 'end_date' => '2026-10-02']);
+    $category = BudgetCategory::factory()->create(['budget_period_id' => $period->id, 'name' => 'Transport', 'allocated_cents' => 12000]);
+    BudgetIncome::factory()->create(['budget_period_id' => $period->id, 'expected_cents' => 100000, 'received_cents' => 75000, 'received_date' => '2026-09-12']);
+    BudgetTransaction::factory()->create(['budget_period_id' => $period->id, 'budget_category_id' => $category->id, 'amount_cents' => 15000, 'date' => '2026-09-20']);
+    $removed = BudgetTransaction::factory()->create(['budget_period_id' => $period->id, 'budget_category_id' => $category->id, 'amount_cents' => 90000, 'date' => '2026-09-21']);
+    $removed->delete();
+    BudgetRecurringExpense::factory()->create(['budget_id' => $this->budget->id, 'category_name' => 'Transport', 'amount_cents' => 50000, 'start_date' => '2026-09-15']);
+
+    $response = $this->get(route('dashboard'))->assertOk()->assertSee('Category spending trends')->assertSee('Last 6 completed periods');
+    $history = $response->viewData('budgetTrends')[0]['periods'][0];
+    expect($history)->toMatchArray(['days' => 21, 'received' => 75000, 'complete' => true]);
+    expect($history['categories'])->toBe([['key' => 'custom:Transport', 'name' => 'Transport', 'planned' => 12000, 'spent' => 15000]]);
+});
+
+test('category histories retain distinct renamed categories and stable keys for built in categories', function () {
+    foreach (['2026-08-01' => 'Food', '2026-09-01' => 'Groceries'] as $start => $name) {
+        $period = BudgetPeriod::factory()->create(['budget_id' => $this->budget->id, 'start_date' => $start, 'end_date' => CarbonImmutable::parse($start)->endOfMonth()->toDateString()]);
+        BudgetCategory::factory()->create(['budget_period_id' => $period->id, 'name' => $name]);
+        BudgetCategory::factory()->create(['budget_period_id' => $period->id, 'name' => 'Subscriptions', 'kind' => 'subscriptions', 'allocated_cents' => null]);
+    }
+    $periods = app(BudgetTrends::class)->build($this->owner)[0]['periods'];
+    expect(array_column($periods[0]['categories'], 'key'))->toBe(['custom:Food', 'subscriptions']);
+    expect(array_column($periods[1]['categories'], 'key'))->toBe(['custom:Groceries', 'subscriptions']);
+});
+
+test('category chart data escapes hostile category names', function () {
+    $period = BudgetPeriod::factory()->create(['budget_id' => $this->budget->id, 'start_date' => '2026-09-01', 'end_date' => '2026-09-30']);
+    BudgetCategory::factory()->create(['budget_period_id' => $period->id, 'name' => '</script><script>alert(1)</script>']);
     $this->get(route('dashboard'))->assertOk()->assertDontSee('</script><script>alert(1)</script>', false)->assertSee('\\u003C', false);
 });
