@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const source = readFileSync(new URL('../resources/js/budgets.js', import.meta.url), 'utf8');
 
 function navigationHarness(tab) {
-    const tabs = ['overview', 'plan', 'expenses', 'subscriptions', 'recurring'].map((name) => ({
+    const tabs = ['overview', 'plan', 'expenses', 'subscriptions', 'recurring', 'review'].map((name) => ({
         dataset: { budgetTab: name },
         classes: new Set(),
         attributes: {},
@@ -33,7 +33,7 @@ function navigationHarness(tab) {
 }
 
 test('dashboard action links open the relevant tab and retain the selected budget period', () => {
-    for (const name of ['plan', 'expenses', 'subscriptions', 'recurring']) {
+    for (const name of ['plan', 'expenses', 'subscriptions', 'recurring', 'review']) {
         const { tabs, panels, location } = navigationHarness(name);
         assert.equal(tabs.find((tab) => tab.dataset.budgetTab === name).attributes['aria-selected'], 'true');
         assert.deepEqual(panels.filter((panel) => !panel.hidden).map((panel) => panel.dataset.budgetPanel), [name]);

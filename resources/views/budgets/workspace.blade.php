@@ -6,6 +6,9 @@
     $amount = fn (int $cents): string => number_format($cents / 100, 2, '.', '');
     $actionUrl = fn (string $action): string => route('budgets.action', ['period' => $period, 'action' => $action]);
     $defaultDate = max($period->start_date->toDateString(), min(now()->toDateString(), $period->end_date->toDateString()));
+    $budgetTabs = ['overview' => 'Overview', 'review' => 'Period review', 'plan' => 'Plan', 'expenses' => 'Expenses', 'subscriptions' => 'Subscriptions', 'recurring' => 'Recurring expenses', 'notifications' => 'Notifications'];
+    $requestedBudgetTab = request('tab');
+    $activeBudgetTab = is_string($requestedBudgetTab) && array_key_exists($requestedBudgetTab, $budgetTabs) ? $requestedBudgetTab : 'overview';
 @endphp
 <div class="space-y-6" data-budget-version="{{ $period->version }}" data-budget-period="{{ $period->id }}" data-budget-undo-url="{{ $actionUrl('expense-restore') }}">
     <div class="flex flex-wrap items-end justify-between gap-4">
@@ -33,14 +36,14 @@
     </div>
     <div class="overflow-x-auto border-b border-base-300">
         <div class="tabs tabs-border w-max min-w-full" role="tablist" aria-label="Budget views">
-            @foreach(['overview' => 'Overview', 'plan' => 'Plan', 'expenses' => 'Expenses', 'subscriptions' => 'Subscriptions', 'recurring' => 'Recurring expenses', 'notifications' => 'Notifications'] as $tab => $label)
-            <button type="button" id="budget-tab-{{ $tab }}" @class(['tab gap-2 px-5', 'tab-active' => $tab === 'overview']) role="tab" aria-controls="budget-panel-{{ $tab }}" aria-selected="{{ $tab === 'overview' ? 'true' : 'false' }}" tabindex="{{ $tab === 'overview' ? '0' : '-1' }}" data-budget-tab="{{ $tab }}">{{ $label }}@if($tab === 'expenses')<span class="badge badge-sm badge-ghost">{{ $transactions->count() }}</span>@endif</button>
+            @foreach($budgetTabs as $tab => $label)
+            <button type="button" id="budget-tab-{{ $tab }}" @class(['tab gap-2 px-5', 'tab-active' => $tab === $activeBudgetTab]) role="tab" aria-controls="budget-panel-{{ $tab }}" aria-selected="{{ $tab === $activeBudgetTab ? 'true' : 'false' }}" tabindex="{{ $tab === $activeBudgetTab ? '0' : '-1' }}" data-budget-tab="{{ $tab }}">{{ $label }}@if($tab === 'expenses')<span class="badge badge-sm badge-ghost">{{ $transactions->count() }}</span>@endif</button>
             @endforeach
         </div>
     </div>
-    @foreach(['overview', 'plan', 'expenses', 'subscriptions', 'recurring', 'notifications'] as $tab)
-    <div id="budget-panel-{{ $tab }}" role="tabpanel" aria-labelledby="budget-tab-{{ $tab }}" tabindex="0" data-budget-panel="{{ $tab }}" @if($tab !== 'overview') hidden @endif>
-        @include('budgets.'.(['overview' => 'overview', 'plan' => 'plan', 'expenses' => 'expenses', 'subscriptions' => 'charges', 'recurring' => 'recurring', 'notifications' => 'notifications'][$tab]))
+    @foreach(array_keys($budgetTabs) as $tab)
+    <div id="budget-panel-{{ $tab }}" role="tabpanel" aria-labelledby="budget-tab-{{ $tab }}" tabindex="0" data-budget-panel="{{ $tab }}" @if($tab !== $activeBudgetTab) hidden @endif>
+        @include('budgets.'.($tab === 'subscriptions' ? 'charges' : $tab))
     </div>
     @endforeach
     <noscript><style>[data-budget-panel][hidden] { display: block; }</style><p class="text-sm opacity-60">Enable JavaScript to switch between budget tabs.</p></noscript>
