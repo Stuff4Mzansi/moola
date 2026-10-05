@@ -12,6 +12,7 @@ use App\Http\Controllers\LiquidityController;
 use App\Http\Controllers\NetWorthController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaymentCalendarController;
+use App\Http\Controllers\PlanningScenarioController;
 use App\Http\Controllers\SavingsGoalController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SubscriptionController;
@@ -30,6 +31,12 @@ Route::middleware(EnsureAdministratorExists::class)->group(function (): void {
         Route::get('/', DashboardController::class)->name('dashboard');
         Route::put('/dashboard/layout', DashboardLayoutController::class)->name('dashboard.layout.update');
         Route::get('/payment-calendar', PaymentCalendarController::class)->name('payment-calendar.index');
+        Route::get('/planning-scenarios', [PlanningScenarioController::class, 'index'])->name('planning-scenarios.index');
+        Route::post('/planning-scenarios', [PlanningScenarioController::class, 'store'])->name('planning-scenarios.store');
+        Route::match(['POST', 'PUT'], '/planning-scenarios/preview', [PlanningScenarioController::class, 'index'])->name('planning-scenarios.preview');
+        Route::put('/planning-scenarios/{scenario}', [PlanningScenarioController::class, 'update'])->name('planning-scenarios.update');
+        Route::post('/planning-scenarios/{scenario}/duplicate', [PlanningScenarioController::class, 'duplicate'])->name('planning-scenarios.duplicate');
+        Route::delete('/planning-scenarios/{scenario}', [PlanningScenarioController::class, 'destroy'])->name('planning-scenarios.destroy');
         Route::middleware('can:settings.manage')->group(function (): void {
             Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
             Route::put('/settings/mail', [SettingsController::class, 'update'])->name('settings.mail.update');

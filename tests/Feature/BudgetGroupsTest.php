@@ -44,6 +44,16 @@ test('new budgets have no groups and users can opt into a 50 30 20 plan', functi
     $this->get(route('budgets.index'))->assertSee('Your group balance');
 });
 
+test('group balances use compact rows within a bounded scroll region for any group count', function (int $count) {
+    BudgetGroup::factory()->count($count)->create(['budget_period_id' => $this->period->id, 'percentage_basis_points' => null]);
+    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('max-h-64 overflow-auto', false);
+    $document = new DOMDocument;
+    @$document->loadHTML($response->getContent());
+    $xpath = new DOMXPath($document);
+    expect($xpath->query('//*[@data-group-balance-table]//tr[@data-group-balance-row]')->length)->toBe($count)
+        ->and($xpath->query('//*[@data-group-balance-table]//thead[contains(@class,"sticky")]')->length)->toBe(1);
+})->with([1, 4, 12]);
+
 test('group percentage limits validate exact decimals total coverage and unique names', function () {
     $this->postJson(groupAction($this->period, 'group-save'), groupPayload($this->period, ['name' => 'Needs', 'percentage' => '50.25']))->assertOk();
     $group = $this->period->groups()->sole();

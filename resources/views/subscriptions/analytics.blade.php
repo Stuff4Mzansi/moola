@@ -88,11 +88,12 @@
             <section class="card border border-primary/30 bg-base-100" aria-labelledby="savings-calculator-title" data-subscription-savings data-total-annual-cents="{{ $analytics['annualCostCents'] }}">
                 <div class="card-body gap-5">
                     <div><h3 id="savings-calculator-title" class="card-title">What could you save?</h3><p class="mt-1 text-sm opacity-70">Select subscriptions to explore removing from future commitments.</p></div>
+                    <form class="space-y-5" method="get" action="{{ route('planning-scenarios.index') }}"><input type="hidden" name="kind" value="subscriptions">
                     <fieldset class="max-h-56 space-y-3 overflow-y-auto rounded-sm border border-base-300 p-4">
                         <legend class="px-1 text-sm font-medium">Subscriptions to review</legend>
                         @foreach($analytics['activeSubscriptions'] as $subscriptionCost)
                             <label class="flex cursor-pointer items-start justify-between gap-3 text-sm">
-                                <span class="flex items-start gap-3"><input type="checkbox" class="checkbox checkbox-sm" data-savings-subscription data-annual-cents="{{ $subscriptionCost['annual_cost_cents'] }}"><span>{{ $subscriptionCost['name'] }}</span></span>
+                                <span class="flex items-start gap-3"><input type="checkbox" class="checkbox checkbox-sm" name="inputs[subscription_ids][]" value="{{ $subscriptionCost['id'] }}" data-savings-subscription data-annual-cents="{{ $subscriptionCost['annual_cost_cents'] }}"><span>{{ $subscriptionCost['name'] }}</span></span>
                                 <span class="shrink-0 opacity-70">ZAR {{ number_format($subscriptionCost['monthly_cost_cents'] / 100, 2) }}/mo</span>
                             </label>
                         @endforeach
@@ -105,9 +106,10 @@
                         <div><div class="mb-1 flex justify-between gap-3 text-xs"><span>Current monthly equivalent</span><span>ZAR {{ number_format($monthlyCostCents / 100, 2) }}</span></div><div class="h-3 rounded-sm bg-primary" aria-hidden="true"></div></div>
                         <div><div class="mb-1 flex justify-between gap-3 text-xs"><span>After selected changes</span><span data-savings-remaining>ZAR {{ number_format($monthlyCostCents / 100, 2) }}</span></div><div class="h-3 overflow-hidden rounded-sm bg-base-300" aria-hidden="true"><div class="h-full rounded-sm bg-success" style="width: 100%" data-savings-bar></div></div></div>
                     </div>
-                    <div><label for="subscription-monthly-target" class="label">Monthly subscription target (optional, ZAR)</label><input id="subscription-monthly-target" type="number" min="0" max="9999999.99" step="0.01" class="input w-full" placeholder="e.g. 500.00" data-savings-target><p class="mt-2 text-sm opacity-70" data-savings-target-result role="status">Enter a target to compare it with your remaining monthly equivalent.</p></div>
+                    <div><label for="subscription-monthly-target" class="label">Monthly subscription target (optional, ZAR)</label><input id="subscription-monthly-target" name="inputs[target]" type="number" min="0" max="9999999.99" step="0.01" class="input w-full" placeholder="e.g. 500.00" data-savings-target><p class="mt-2 text-sm opacity-70" data-savings-target-result role="status">Enter a target to compare it with your remaining monthly equivalent.</p></div>
                     <button type="button" class="btn btn-sm btn-ghost self-start" data-savings-reset>Reset selections</button>
-                    <p class="text-xs opacity-60">This scenario does not cancel or change subscriptions. Reductions assume future charges stop at current prices; paid charges and cancellation fees are excluded. Your target is not saved.</p>
+                    <button class="btn btn-sm btn-outline" type="submit">Keep this plan in Planning scenarios</button></form>
+                    <p class="text-xs opacity-60">This scenario does not cancel or change subscriptions. Reductions assume future charges stop at current prices; paid charges and cancellation fees are excluded. Use Planning scenarios to name and save these assumptions.</p>
                     <noscript><p class="text-sm">Enable JavaScript to use the savings calculator. The charts and figures above remain available.</p></noscript>
                 </div>
             </section>
