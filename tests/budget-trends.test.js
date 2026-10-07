@@ -23,6 +23,21 @@ test('completed variance excludes unfinished periods and still identifies oversp
     assert.equal(summary.difference, 3000);
 });
 
+test('income comparison calculates received-minus-spent and scales both series', () => {
+    const periods = [
+        { ...period(10000, 9000), received: 8000 },
+        { ...period(12000, 15000), received: 15000 },
+    ];
+    const summary = summarizeTrendPeriods(periods, 'received');
+    const geometry = trendGeometry(periods, 680, 'received');
+
+    assert.equal(summary.planned, 23000);
+    assert.equal(summary.spent, 24000);
+    assert.equal(summary.difference, -1000);
+    assert.equal(summary.overCount, 1);
+    assert.ok(geometry.points.every((point) => Number.isFinite(point.plannedY) && Number.isFinite(point.spentY)));
+});
+
 test('a current period shows remaining room or overspending so far without claiming a completed result', () => {
     assert.equal(summarizeTrendPeriods([period(10000, 3000, false)]).difference, 7000);
     assert.equal(summarizeTrendPeriods([period(10000, 12000, false)]).difference, -2000);
@@ -54,19 +69,36 @@ async function chartHarness(budgets) {
         replaceChildren(...children) { this.children = children; }
         addEventListener(name, handler) { this.handlers[name] = handler; }
     }
-    const names = ['data', 'budget', 'range', 'controls', 'content', 'empty', 'planned', 'spent', 'variance-label', 'variance', 'variance-detail', 'window', 'chart', 'table', 'insight'];
+    const names = ['data', 'budget', 'range', 'controls', 'content', 'empty', 'planned', 'spent', 'variance-label', 'variance', 'variance-detail', 'window', 'chart', 'table', 'insight', 'reference-label', 'reference-legend', 'over-legend', 'table-reference', 'difference-heading', 'caption'];
     const elements = new Map(names.map((name) => [`[data-trend-${name}]`, new Element()]));
     elements.get('[data-trend-data]').textContent = JSON.stringify(budgets);
     elements.get('[data-trend-range]').value = '6';
     const modes = ['line', 'bar'].map((mode) => { const element = new Element('button'); element.dataset.trendMode = mode; return element; });
-    const section = { querySelector(selector) { return elements.get(selector); }, querySelectorAll() { return modes; } };
+    const comparisons = ['budget', 'income'].map((value) => { const element = new Element('button'); element.dataset.trendComparison = value; return element; });
+    const section = { querySelector(selector) { return elements.get(selector); }, querySelectorAll(selector) { return selector === '[data-trend-comparison]' ? comparisons : modes; } };
     const handlers = {};
-    const document = { querySelector() { return section; }, createElement(tag) { return new Element(tag); }, createElementNS(namespace, tag) { return new Element(tag); }, addEventListener(name, handler) { handlers[name] = handler; } };
+    const document = { body: { dataset: {} }, querySelector() { return section; }, createElement(tag) { return new Element(tag); }, createElementNS(namespace, tag) { return new Element(tag); }, addEventListener(name, handler) { handlers[name] = handler; } };
     const source = readFileSync(new URL('../resources/js/budget-trends.js', import.meta.url), 'utf8').replace(/^export /gm, '');
     vm.runInNewContext(source, { document, Intl, Date });
     handlers.DOMContentLoaded();
-    return { elements, modes };
+    return { elements, modes, comparisons };
 }
+
+test('budget trends can switch to received-income versus spending', async () => {
+    const periods = [
+        { id: 1, label: 'October', start: '2026-10-01', end: '2026-10-31', url: '/budgets?period=1', planned: 10000, spent: 9000, received: 8000, complete: true },
+    ];
+    const { elements, comparisons } = await chartHarness([{ id: 1, name: 'Household', periods }]);
+    const get = (name) => elements.get(`[data-trend-${name}]`);
+    comparisons[1].handlers.click();
+
+    assert.equal(get('reference-label').textContent, 'Income received');
+    assert.equal(get('planned').textContent, 'R 80,00');
+    assert.equal(get('variance-label').textContent, 'Received minus spending - completed periods');
+    assert.equal(get('difference-heading').textContent, 'Balance');
+    assert.equal(get('table').children[0].children[2].textContent, 'R 80,00');
+    assert.equal(get('table').children[0].children[4].textContent, 'R 10,00 spending above income');
+});
 
 test('chart controls switch modes ranges and budgets and show one period without requiring another', async () => {
     const periods = Array.from({ length: 8 }, (_, id) => ({ id, label: `Period ${id}`, start: `2026-0${id + 1}-01`, end: `2026-0${id + 1}-28`, url: `/budgets?period=${id}`, ...period(10000, 5000) }));

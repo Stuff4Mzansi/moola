@@ -18,8 +18,15 @@ test('new accounts get the default dashboard and only authorized widgets', funct
         ->assertSee('Customize dashboard')->assertViewHas('dashboardLayout', $this->layout)
         ->assertDontSee('data-layout-widget="household"', false);
 
+    expect(collect($this->layout)->firstWhere('id', 'goal-forecast')['visible'])->toBeTrue()
+        ->and(collect($this->layout)->firstWhere('id', 'budget-pace')['visible'])->toBeTrue()
+        ->and(collect($this->layout)->firstWhere('id', 'spending-mix')['visible'])->toBeFalse();
+
     $admin = User::factory()->admin()->create();
-    $this->actingAs($admin)->get(route('dashboard'))->assertOk()->assertSee('data-layout-widget="household"', false);
+    $this->actingAs($admin)->get(route('dashboard'))->assertOk()->assertSee('data-layout-widget="household"', false)
+        ->assertSee('data-layout-widget="goal-forecast"', false)
+        ->assertSee('data-layout-widget="budget-pace"', false)
+        ->assertSee('data-layout-widget="spending-mix"', false);
 });
 
 test('layouts persist ordering visibility and tile sizes only for the current account', function () {

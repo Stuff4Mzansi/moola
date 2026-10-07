@@ -44,6 +44,22 @@ test('dashboard separates actual spending from recurring forecasts and uses work
         ->assertSee(e(route('budgets.index', ['period' => $this->period->id, 'tab' => 'plan'])), false);
 });
 
+test('dashboard chart data includes current spending pace and uncategorised spending', function () {
+    BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => null, 'amount_cents' => 5000, 'date' => '2026-10-02']);
+    $response = $this->get(route('dashboard'))->assertOk()
+        ->assertSee('Current-period spending pace')
+        ->assertSee('Current-period spending mix')
+        ->assertSee('Income received')
+        ->assertSee('Uncategorised');
+    $card = $response->viewData('budgetOverview')['cards']->sole();
+
+    expect($card['dailyPace'])->toHaveCount(31)
+        ->and($card['dailyPace'][1])->toMatchArray(['date' => '2026-10-02', 'spent' => 5000])
+        ->and($card['dailyPace'][2]['spent'])->toBe(25000)
+        ->and($card['dailyPace'][3]['spent'])->toBeNull()
+        ->and($card['spendingMix'])->toContain(['name' => 'Uncategorised', 'amount' => 5000]);
+});
+
 test('next seven days includes both schedule types at the boundary and excludes recorded payments', function () {
     $this->budget->update(['include_subscriptions' => true]);
     BudgetCategory::factory()->create(['budget_period_id' => $this->period->id, 'name' => 'Subscriptions', 'kind' => 'subscriptions', 'allocated_cents' => null]);

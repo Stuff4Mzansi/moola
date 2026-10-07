@@ -6,6 +6,7 @@ use App\Models\Budget;
 use App\Models\BudgetCommitment;
 use App\Models\BudgetPeriod;
 use App\Models\BudgetRecurringCharge;
+use App\Models\BudgetTransaction;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -93,7 +94,26 @@ class BudgetDashboard
         }
         $risk = $totals['after_commitments'] < 0 || $overLimits->isNotEmpty() ? 2 : ($totals['unallocated'] < 0 || $overdue->isNotEmpty() || $totals['expected'] === 0 ? 1 : 0);
         $highlightRows = $rows->sortByDesc(fn (array $row): int => $row['spent'] + $row['upcoming'])->take(3)->values();
+        $transactionByDate = $data['transactions']->groupBy(fn (BudgetTransaction $transaction): string => $transaction->date->toDateString());
+        $daysInPeriod = (int) $data['period']->start_date->diffInDays($data['period']->end_date) + 1;
+        $today = CarbonImmutable::today();
+        $dailyPace = [];
+        $cumulativeSpent = 0;
+        for ($date = $data['period']->start_date, $dayIndex = 0; $date->lte($data['period']->end_date); $date = $date->addDay(), $dayIndex++) {
+            $isThroughToday = $date->lte($today);
+            if ($isThroughToday) {
+                $cumulativeSpent += (int) $transactionByDate->get($date->toDateString(), collect())->sum('amount_cents');
+            }
+            $paceElapsedDays = min($dayIndex + 1, $daysInPeriod);
+            $dailyPace[] = ['date' => $date->toDateString(), 'spent' => $isThroughToday ? $cumulativeSpent : null, 'planned' => (int) round($totals['planned'] * $paceElapsedDays / $daysInPeriod)];
+        }
+        $spendingMix = $data['categoryRows']->filter(fn (array $row): bool => $row['spent'] > 0)
+            ->map(fn (array $row): array => ['name' => $row['category']->name, 'amount' => $row['spent']])->values();
+        $uncategorised = $data['transactions']->whereNull('budget_category_id')->sum('amount_cents');
+        if ($uncategorised > 0) {
+            $spendingMix->push(['name' => 'Uncategorised', 'amount' => $uncategorised]);
+        }
 
-        return ['budget' => $period->budget, 'period' => $data['period'], 'totals' => $totals, 'canEdit' => $canEdit, 'role' => $period->budget->memberRole($user), 'url' => $url('overview'), 'planUrl' => $url('plan'), 'daysLeft' => $daysLeft, 'elapsedPercent' => (int) round($elapsedDays / $periodDays * 100), 'spentPercent' => $totals['planned'] > 0 ? round($totals['spent'] / $totals['planned'] * 100, 1) : null, 'dailyRoom' => intdiv(max(0, $totals['after_commitments']), $daysLeft), 'dueSoonCents' => $dueSoon->sum('amount'), 'dueSoonCount' => $dueSoon->count(), 'overdueCount' => $overdue->count(), 'payments' => $payments->filter(fn (array $payment): bool => $payment['date']->lte($today->addDays(6)))->sortBy('date')->take(3)->values(), 'rows' => $highlightRows, 'grouped' => $data['groups']->isNotEmpty(), 'insights' => array_slice($insights, 0, 2), 'risk' => $risk];
+        return ['budget' => $period->budget, 'period' => $data['period'], 'totals' => $totals, 'dailyPace' => $dailyPace, 'spendingMix' => $spendingMix->all(), 'canEdit' => $canEdit, 'role' => $period->budget->memberRole($user), 'url' => $url('overview'), 'planUrl' => $url('plan'), 'daysLeft' => $daysLeft, 'elapsedPercent' => (int) round($elapsedDays / $periodDays * 100), 'spentPercent' => $totals['planned'] > 0 ? round($totals['spent'] / $totals['planned'] * 100, 1) : null, 'dailyRoom' => intdiv(max(0, $totals['after_commitments']), $daysLeft), 'dueSoonCents' => $dueSoon->sum('amount'), 'dueSoonCount' => $dueSoon->count(), 'overdueCount' => $overdue->count(), 'payments' => $payments->filter(fn (array $payment): bool => $payment['date']->lte($today->addDays(6)))->sortBy('date')->take(3)->values(), 'rows' => $highlightRows, 'grouped' => $data['groups']->isNotEmpty(), 'insights' => array_slice($insights, 0, 2), 'risk' => $risk];
     }
 }
