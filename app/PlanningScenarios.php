@@ -61,7 +61,9 @@ class PlanningScenarios
         $target = ($inputs['target'] ?? null) !== null ? BudgetMoney::cents($inputs['target']) : null;
         $warnings = count($inputs['subscription_ids']) > $selected->count() ? ['Some selected subscriptions are paused, cancelled, or removed. They are excluded from estimated savings.'] : [];
 
-        return ['metrics' => ['Remaining monthly equivalent' => $monthly, 'Monthly savings' => (int) round($reduction / 12), 'Annual savings' => $reduction], 'headline' => 'ZAR '.number_format($monthly / 100, 2).' / month', 'detail' => $target === null ? 'Current billing frequencies, with selected services excluded.' : ($monthly <= $target ? 'Within your monthly target.' : 'ZAR '.number_format(($monthly - $target) / 100, 2).' above your monthly target.'), 'score' => $monthly, 'scoreLabel' => 'Remaining monthly equivalent (ZAR)', 'warnings' => $warnings];
+        $money = app(CurrencySettings::class);
+
+        return ['metrics' => ['Remaining monthly equivalent' => $monthly, 'Monthly savings' => (int) round($reduction / 12), 'Annual savings' => $reduction], 'headline' => $money->format($monthly).' / month', 'detail' => $target === null ? 'Current billing frequencies, with selected services excluded.' : ($monthly <= $target ? 'Within your monthly target.' : $money->format($monthly - $target).' above your monthly target.'), 'score' => $monthly, 'scoreLabel' => 'Remaining monthly equivalent ('.$money->code().')', 'warnings' => $warnings];
     }
 
     /** @param array<string, mixed> $inputs
@@ -72,13 +74,15 @@ class PlanningScenarios
         $horizon ??= (int) $inputs['horizon'];
         $forecast = app(LiquidityAnalytics::class)->build($user, [...$inputs, 'horizon' => $horizon, 'purchase_date' => CarbonImmutable::today()->addDays((int) $inputs['purchase_after_days'])->toDateString()]);
         $warnings = [];
-        if ($forecast['unknown'] || $forecast['stale'] || $forecast['overallocated'] || $forecast['missingIncome'] || $forecast['overdue'] || $forecast['foreignSubscriptions']) {
+        if ($forecast['unknown'] || $forecast['stale'] || $forecast['overallocated'] || $forecast['missingIncome'] || $forecast['overdue']) {
             $warnings[] = 'Cash-flow inputs need review. Check asset access, valuations, reserves, and dated income in Net worth → Liquidity.';
         }
         if ((int) $inputs['purchase_after_days'] >= $horizon && BudgetMoney::cents($inputs['purchase']) > 0) {
             $warnings[] = 'The purchase falls after this comparison window and is excluded.';
         }
 
-        return ['metrics' => ['Lowest available cash' => $forecast['lowest']['low'], 'Closing available cash' => $forecast['daily']->last()['closing'], 'Extra cash to maintain buffer' => $forecast['bufferGap']], 'headline' => $forecast['cashGap'] > 0 ? 'Cash shortfall: ZAR '.number_format($forecast['cashGap'] / 100, 2) : 'No cash shortfall in this window', 'detail' => $horizon.' days from today. Lowest cash on '.CarbonImmutable::parse($forecast['lowest']['date'])->format('d M Y').'. Uses current liquidity settings.', 'score' => $forecast['lowest']['low'], 'scoreLabel' => 'Lowest available cash (ZAR)', 'warnings' => $warnings, 'daily' => $forecast['daily']->all(), 'buffer' => $forecast['preference']->buffer_cents];
+        $money = app(CurrencySettings::class);
+
+        return ['metrics' => ['Lowest available cash' => $forecast['lowest']['low'], 'Closing available cash' => $forecast['daily']->last()['closing'], 'Extra cash to maintain buffer' => $forecast['bufferGap']], 'headline' => $forecast['cashGap'] > 0 ? 'Cash shortfall: '.$money->format($forecast['cashGap']) : 'No cash shortfall in this window', 'detail' => $horizon.' days from today. Lowest cash on '.CarbonImmutable::parse($forecast['lowest']['date'])->format('d M Y').'. Uses current liquidity settings.', 'score' => $forecast['lowest']['low'], 'scoreLabel' => 'Lowest available cash ('.$money->code().')', 'warnings' => $warnings, 'daily' => $forecast['daily']->all(), 'buffer' => $forecast['preference']->buffer_cents];
     }
 }

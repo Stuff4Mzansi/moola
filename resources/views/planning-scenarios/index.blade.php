@@ -2,7 +2,7 @@
 @section('title', 'Planning scenarios')
 @section('content')
 @php
-    $money = fn (int $value): string => 'ZAR '.number_format($value / 100, 2);
+    $money = fn (int $value): string => $currencyPrefix.number_format($value / 100, 2);
     $values = old('inputs', $inputs);
 @endphp
 <div class="mx-auto max-w-7xl space-y-5">
@@ -21,18 +21,18 @@
                 @if($editingScenario)<input type="hidden" name="scenario" value="{{ $editingScenario->id }}">@endif
                 <div class="grid gap-3 sm:grid-cols-2">
                     @if($kind === 'debt')
-                        <label><span class="label">Extra monthly payment (ZAR)</span><input class="input w-full" name="inputs[extra]" type="number" min="0" max="9999999.99" step="0.01" value="{{ $values['extra'] }}" required></label>
+                        <label><span class="label">Extra monthly payment ({{ $currencySymbol }})</span><input class="input w-full" name="inputs[extra]" type="number" min="0" max="9999999.99" step="0.01" value="{{ $values['extra'] }}" required></label>
                         <label><span class="label">Payoff strategy</span><select class="select w-full" name="inputs[strategy]">@foreach(['avalanche' => 'Avalanche · highest interest first', 'snowball' => 'Snowball · smallest balance first'] as $key => $label)<option value="{{ $key }}" @selected($values['strategy'] === $key)>{{ $label }}</option>@endforeach</select></label>
                     @elseif($kind === 'liquidity')
                         <label><span class="label">Forecast window</span><select class="select w-full" name="inputs[horizon]">@foreach([30, 60, 90] as $days)<option value="{{ $days }}" @selected((int) $values['horizon'] === $days)>{{ $days }} days</option>@endforeach</select></label>
                         <label><span class="label">Income delay (days)</span><input class="input w-full" name="inputs[income_delay]" type="number" min="0" max="60" value="{{ $values['income_delay'] }}" required></label>
-                        @foreach(['extra_debt' => 'Extra debt payment / month (ZAR)', 'extra_reserve' => 'Extra protected savings / month (ZAR)', 'purchase' => 'One-off purchase (ZAR)'] as $key => $label)<label><span class="label">{{ $label }}</span><input class="input w-full" name="inputs[{{ $key }}]" type="number" min="0" max="9999999.99" step="0.01" value="{{ $values[$key] }}" required></label>@endforeach
+                        @foreach(['extra_debt' => 'Extra debt payment / month ('.$currencySymbol.')', 'extra_reserve' => 'Extra protected savings / month ('.$currencySymbol.')', 'purchase' => 'One-off purchase ('.$currencySymbol.')'] as $key => $label)<label><span class="label">{{ $label }}</span><input class="input w-full" name="inputs[{{ $key }}]" type="number" min="0" max="9999999.99" step="0.01" value="{{ $values[$key] }}" required></label>@endforeach
                         <label><span class="label">Purchase: days from today</span><input class="input w-full" name="inputs[purchase_after_days]" type="number" min="0" max="89" value="{{ $values['purchase_after_days'] }}" required></label>
                     @else
                         <fieldset class="max-h-64 space-y-3 overflow-y-auto rounded-sm border border-base-300 p-3 sm:col-span-2"><legend class="px-1 text-xs font-medium">Subscriptions to exclude from this plan</legend>
                             @forelse($activeSubscriptions as $subscription)<label class="flex items-start justify-between gap-3 text-sm"><span class="flex items-start gap-2"><input class="checkbox checkbox-sm" type="checkbox" name="inputs[subscription_ids][]" value="{{ $subscription->id }}" @checked(in_array($subscription->id, $values['subscription_ids']))>{{ $subscription->name }}</span><span class="shrink-0 text-xs opacity-65">{{ $money($subscription->monthlyCostCents()) }}/mo</span></label>@empty<p class="text-sm opacity-60">No active subscriptions yet. <a class="link" href="{{ route('subscriptions.create') }}">Add a subscription</a>.</p>@endforelse
                         </fieldset>
-                        <label><span class="label">Monthly target (ZAR, optional)</span><input class="input w-full" name="inputs[target]" type="number" min="0" max="9999999.99" step="0.01" value="{{ $values['target'] }}"></label>
+                        <label><span class="label">Monthly target ({{ $currencySymbol }}, optional)</span><input class="input w-full" name="inputs[target]" type="number" min="0" max="9999999.99" step="0.01" value="{{ $values['target'] }}"></label>
                     @endif
                 </div>
                 <div class="border-t border-base-300 pt-4"><label class="block"><span class="label">Scenario name</span><input class="input w-full" name="name" maxlength="100" value="{{ old('name', request('name', $editingScenario?->name)) }}" placeholder="e.g. Pay off faster without stretching cash" required></label><label class="mt-3 block"><span class="label">Notes (optional)</span><textarea class="textarea w-full" name="notes" maxlength="500" rows="2" placeholder="What would make this plan work for you?">{{ old('notes', request('notes', $editingScenario?->notes)) }}</textarea></label></div>

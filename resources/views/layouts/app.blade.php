@@ -17,7 +17,7 @@
             </style>
         @endif
     </head>
-    <body class="app-shell min-h-dvh overflow-x-clip text-base-content">
+    <body class="app-shell min-h-dvh overflow-x-clip text-base-content" data-currency-prefix="{{ $currencyPrefix }}" data-currency-symbol="{{ $currencySymbol }}" data-currency-code="{{ $currencyCode }}">
         <a href="#main-content" class="sr-only rounded-sm bg-primary px-4 py-2 text-xs font-semibold text-primary-content focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:outline-2 focus:outline-offset-2 focus:outline-primary">Skip to content</a>
 
         <div class="drawer min-h-dvh lg:drawer-open">

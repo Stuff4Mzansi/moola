@@ -45,7 +45,7 @@ test('budget category and group warnings reach only eligible members once per le
     $this->artisan('moola:notify')->assertSuccessful();
     expect(FinancialNotification::query()->whereNull('resolved_at')->count())->toBe(6);
     expect(FinancialNotification::query()->whereNotNull('resolved_at')->count())->toBe(6);
-    expect(FinancialNotification::query()->whereNull('resolved_at')->first()->message)->toContain('ZAR 100.00 over');
+    expect(FinancialNotification::query()->whereNull('resolved_at')->first()->message)->toContain('R 100.00 over');
     $expense->delete();
     $this->artisan('moola:notify')->assertSuccessful();
     expect(FinancialNotification::query()->whereNull('resolved_at')->count())->toBe(0);
@@ -125,7 +125,7 @@ test('read warnings keep current amounts without becoming unread or duplicating'
     $this->post(route('notifications.open', $notification->id))->assertRedirect();
     $expense->update(['amount_cents' => 90000]);
     $this->artisan('moola:notify')->assertSuccessful();
-    expect($notification->fresh()->message)->toContain('ZAR 100.00 remains')->and($notification->fresh()->read_at)->not->toBeNull();
+    expect($notification->fresh()->message)->toContain('R 100.00 remains')->and($notification->fresh()->read_at)->not->toBeNull();
     expect(FinancialNotification::query()->count())->toBe(4);
 });
 

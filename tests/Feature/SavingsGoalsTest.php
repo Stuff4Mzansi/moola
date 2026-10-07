@@ -66,7 +66,7 @@ test('monthly planning progress and contribution history reflect recorded saving
     $this->post(route('goals.contributions.store', $this->goal), savingsContributionData(['contribution_id' => $entry->id, 'amount' => '200']))->assertRedirect();
     expect(app(SavingsWorkspace::class)->build($this->owner)['saved'])->toBe(30000);
     $this->putJson(route('goals.update', $this->goal), savingsDetails(['opening' => '200']))->assertUnprocessable();
-    $this->get(route('goals.index', ['tab' => 'contributions']))->assertOk()->assertSee('ZAR 200.00');
+    $this->get(route('goals.index', ['tab' => 'contributions']))->assertOk()->assertSee('R 200.00');
 });
 
 test('contribution removal and undo update progress without duplicates', function () {

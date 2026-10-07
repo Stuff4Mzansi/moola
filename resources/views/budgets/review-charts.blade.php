@@ -33,7 +33,7 @@
     </section>
     <section class="rounded-sm border border-base-300 bg-base-200/30 p-4 sm:p-5" aria-labelledby="review-spending-title">
         <h4 id="review-spending-title" class="font-semibold">Where recorded spending went</h4>
-        <p class="mt-1 text-xs opacity-65">Every rand appears once across these four parts.</p>
+        <p class="mt-1 text-xs opacity-65">Every recorded amount appears once across these four parts.</p>
         <div class="mt-4 flex flex-col items-center gap-5 sm:flex-row">
             <div class="relative size-44 shrink-0">
                 <svg viewBox="0 0 120 120" class="size-full" role="img" aria-labelledby="review-spending-title review-spending-description">
@@ -46,7 +46,7 @@
                         @endif
                     @endforeach
                 </svg>
-                <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-8 text-center" aria-hidden="true"><p class="text-xs opacity-65">Recorded</p><p class="mt-1 text-base font-bold tabular-nums">{{ number_format($totals['spent'] / 100, 2) }}</p><p class="text-xs opacity-65">ZAR</p></div>
+                <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-8 text-center" aria-hidden="true"><p class="text-xs opacity-65">Recorded</p><p class="mt-1 text-base font-bold tabular-nums">{{ number_format($totals['spent'] / 100, 2) }}</p><p class="text-xs opacity-65">{{ $currencySymbol }}</p></div>
             </div>
             <ul id="review-spending-description" class="w-full min-w-0 space-y-3">
                 @foreach($spendingParts as $part)

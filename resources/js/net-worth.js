@@ -24,7 +24,9 @@ function initializeWorthCharts() {
         const range = section.querySelector('[data-worth-range]');
         const breakdown = section.querySelector('[data-worth-breakdown]');
         const canvas = section.querySelector('[data-worth-canvas]');
-        const money = (value) => `ZAR ${new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 2 }).format(value / 100)}`;
+        const currencyPrefix = document.body.dataset.currencyPrefix || 'R ';
+        const currencySymbol = document.body.dataset.currencySymbol || 'R';
+        const money = (value) => `${currencyPrefix}${new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 2 }).format(value / 100)}`;
         const date = (day) => new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Johannesburg' }).format(new Date(`${day}T12:00:00+02:00`));
         function svgElement(name, attributes = {}, text = null) {
             const element = document.createElementNS('http://www.w3.org/2000/svg', name);
@@ -53,7 +55,7 @@ function initializeWorthCharts() {
                 svg.append(svgElement('line', { x1: left, x2: right, y1: y(value), y2: y(value), stroke: 'currentColor', opacity: 0.1 }));
                 svg.append(svgElement('text', { x: left - 8, y: y(value) + 4, fill: 'currentColor', opacity: 0.6, 'font-size': 10, 'text-anchor': 'end' }, new Intl.NumberFormat('en-ZA', { notation: 'compact', maximumFractionDigits: 1 }).format(value / 100)));
             }
-            svg.append(svgElement('text', { x: left - 8, y: top - 3, fill: 'currentColor', opacity: 0.6, 'font-size': 9, 'text-anchor': 'end' }, 'ZAR'));
+            svg.append(svgElement('text', { x: left - 8, y: top - 3, fill: 'currentColor', opacity: 0.6, 'font-size': 9, 'text-anchor': 'end' }, currencySymbol));
             svg.append(svgElement('line', { x1: left, x2: right, y1: y(0), y2: y(0), stroke: 'currentColor', opacity: 0.35, 'stroke-dasharray': '3 3' }));
             const series = showBreakdown ? [['assets', 'Assets', 'success'], ['debts', 'Debts', 'error'], ['netWorth', 'Net worth', 'primary']] : [['netWorth', 'Net worth', 'primary']];
             series.forEach(([key, label, color]) => {

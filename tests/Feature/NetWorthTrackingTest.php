@@ -60,7 +60,7 @@ test('net worth includes debt principal and never adds savings goals as extra as
     SavingsGoal::factory()->create(['user_id' => $this->owner->id, 'opening_cents' => 999999]);
     $data = app(NetWorthWorkspace::class)->build($this->owner);
     expect($data['assetTotal'])->toBe(200000)->and($data['debtTotal'])->toBe(91000)->and($data['netWorth'])->toBe(109000);
-    $this->get(route('net-worth.index'))->assertOk()->assertSee('ZAR 1,090.00')->assertSee('Savings goals earmark money');
+    $this->get(route('net-worth.index'))->assertOk()->assertSee('R 1,090.00')->assertSee('Savings goals earmark money');
     $this->get(route('dashboard'))->assertOk()->assertViewHas('netWorthOverview', fn (array $data): bool => $data['netWorth'] === 109000);
 });
 
@@ -69,7 +69,7 @@ test('negative net worth zero asset balances and stale values have actionable su
     Debt::factory()->create(['user_id' => $this->owner->id, 'opening_balance_cents' => 50000, 'balance_date' => '2026-10-01']);
     $data = app(NetWorthWorkspace::class)->build($this->owner);
     expect($data['netWorth'])->toBe(-50000)->and($data['stale'])->toBe(1)->and($data['groups']->sole()['share'])->toBe(0);
-    $this->get(route('net-worth.index'))->assertOk()->assertSee('ZAR -500.00')->assertSee('Update values');
+    $this->get(route('net-worth.index'))->assertOk()->assertSee('R -500.00')->assertSee('Update values');
     $this->get(route('dashboard'))->assertOk()->assertSee('Refresh their values');
 });
 

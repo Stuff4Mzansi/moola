@@ -10,10 +10,10 @@
         <div>
             <label class="label text-xs" for="amount">Price per payment</label>
             <div class="flex items-center gap-2">
-                <span class="font-semibold">ZAR</span>
+                <span class="font-semibold">{{ $currencySymbol }}</span>
                 <input class="input input-sm w-full" id="amount" name="amount" type="number" min="0.01" max="9999999.99" step="0.01" value="{{ old('amount', $subscription->exists ? number_format($subscription->amount_cents / 100, 2, '.', '') : '') }}" required placeholder="159.00">
             </div>
-            <input type="hidden" name="currency" value="ZAR">
+            <input type="hidden" name="currency" value="{{ $currencyCode }}">
         </div>
         <div>
             <label class="label text-xs" for="billing_frequency">Billing frequency</label>

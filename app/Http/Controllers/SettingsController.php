@@ -3,13 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\BudgetNotificationMail;
+use App\CurrencySettings;
 use App\Http\Requests\MailSettingsRequest;
+use App\Models\AppSetting;
 use App\Models\FinancialNotification;
 use App\Models\MailSetting;
+use App\Models\Subscription;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Throwable;
 
@@ -17,7 +21,20 @@ class SettingsController extends Controller
 {
     public function edit(): View
     {
-        return view('settings.edit', ['mailSettings' => MailSetting::query()->find(1) ?? new MailSetting(['enabled' => false, 'port' => 587, 'security' => 'starttls', 'from_name' => config('app.name')]), 'failedEmails' => FinancialNotification::query()->whereNull('resolved_at')->whereNull('email_sent_at')->where('email_attempts', '>', 0)->count()]);
+        return view('settings.edit', ['mailSettings' => MailSetting::query()->find(1) ?? new MailSetting(['enabled' => false, 'port' => 587, 'security' => 'starttls', 'from_name' => config('app.name')]), 'failedEmails' => FinancialNotification::query()->whereNull('resolved_at')->whereNull('email_sent_at')->where('email_attempts', '>', 0)->count(), 'currencyCode' => app(CurrencySettings::class)->code(), 'currencies' => CurrencySettings::CURRENCIES]);
+    }
+
+    public function updateCurrency(Request $request, CurrencySettings $currencySettings): RedirectResponse
+    {
+        $data = $request->validate(['currency' => ['required', Rule::in(array_keys(CurrencySettings::CURRENCIES))]]);
+
+        DB::transaction(function () use ($data, $currencySettings): void {
+            AppSetting::query()->updateOrCreate(['id' => 1], ['currency' => $data['currency']]);
+            Subscription::query()->update(['currency' => $data['currency']]);
+            $currencySettings->select($data['currency']);
+        });
+
+        return to_route('settings.edit')->with('status', 'Currency saved. Existing amounts were not converted.');
     }
 
     public function update(MailSettingsRequest $request): RedirectResponse

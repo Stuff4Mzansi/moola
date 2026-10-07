@@ -39,6 +39,7 @@ Route::middleware(EnsureAdministratorExists::class)->group(function (): void {
         Route::delete('/planning-scenarios/{scenario}', [PlanningScenarioController::class, 'destroy'])->name('planning-scenarios.destroy');
         Route::middleware('can:settings.manage')->group(function (): void {
             Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
+            Route::put('/settings/currency', [SettingsController::class, 'updateCurrency'])->name('settings.currency.update');
             Route::put('/settings/mail', [SettingsController::class, 'update'])->name('settings.mail.update');
             Route::post('/settings/mail/test', [SettingsController::class, 'test'])->middleware('throttle:3,1')->name('settings.mail.test');
         });

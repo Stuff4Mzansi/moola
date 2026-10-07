@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
         debtDialog.showModal();
     }
     const paymentForm = paymentDialog.querySelector('form');
+    const currencySymbol = document.body.dataset.currencySymbol || 'R';
     let estimateVersion = 0;
     let estimateTimer;
     async function updateInterest() {
@@ -25,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         interest.readOnly = automatic;
         interest.disabled = automatic;
         interest.required = !automatic;
-        paymentForm.querySelector('[data-interest-label]').textContent = automatic ? 'Estimated interest (ZAR)' : 'Actual interest (ZAR)';
+        paymentForm.querySelector('[data-interest-label]').textContent = automatic ? `Estimated interest (${currencySymbol})` : `Actual interest (${currencySymbol})`;
         if (!automatic) {
             summary.textContent = "Use the interest portion from your lender's statement. The rest reduces principal.";
             return;
@@ -49,7 +50,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const split = await response.json();
             if (version !== estimateVersion) return;
             interest.value = split.interest;
-            summary.textContent = `Estimated split: ZAR ${split.interest} interest + ZAR ${split.principal} towards your balance.`;
+            const currencyPrefix = document.body.dataset.currencyPrefix || 'R ';
+            summary.textContent = `Estimated split: ${currencyPrefix}${split.interest} interest + ${currencyPrefix}${split.principal} towards your balance.`;
         } catch {
             if (version !== estimateVersion) return;
             interest.value = '';

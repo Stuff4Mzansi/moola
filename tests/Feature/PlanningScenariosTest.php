@@ -171,7 +171,7 @@ test('cash shortfalls render signed comparison bars and cannot change liquidity 
     $inputs = [...app(PlanningScenarios::class)->defaults('liquidity'), 'purchase' => '100.00'];
     $scenario = PlanningScenario::factory()->liquidity()->for($this->user, 'owner')->create(['inputs' => $inputs]);
     $this->actingAs($this->user)->get(route('planning-scenarios.index', ['kind' => 'liquidity', 'compare' => [$scenario->id]]))->assertOk()
-        ->assertSee('Cash shortfall: ZAR 100.00')->assertSee('ZAR -100.00');
+        ->assertSee('Cash shortfall: R 100.00')->assertSee('R -100.00');
     $this->assertDatabaseCount('liquidity_preferences', 0);
 });
 

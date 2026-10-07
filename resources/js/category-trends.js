@@ -35,7 +35,9 @@ function initializeCategoryTrends() {
     const categorySelect = find('select');
     budgetSelect.value = String((budgets.find((budget) => budget.periods.some((period) => period.complete)) ?? budgets[0]).id);
     find('controls').hidden = false;
-    const money = (cents) => `ZAR ${new Intl.NumberFormat('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100)}`;
+    const currencyPrefix = document.body.dataset.currencyPrefix || 'R ';
+    const currencySymbol = document.body.dataset.currencySymbol || 'R';
+    const money = (cents) => `${currencyPrefix}${new Intl.NumberFormat('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100)}`;
     const node = (tag, content, classes = '') => { const element = document.createElement(tag); element.textContent = content; element.className = classes; return element; };
     const svgNode = (tag, attributes, content = null) => { const element = document.createElementNS('http://www.w3.org/2000/svg', tag); Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value)); if (content !== null) element.textContent = content; return element; };
     let rows = [];
@@ -55,7 +57,7 @@ function initializeCategoryTrends() {
             svg.append(svgNode('line', { x1: left, x2: right, y1: y, y2: y, class: 'stroke-base-content', opacity: 0.1 }));
             svg.append(svgNode('text', { x: left - 10, y: y + 4, 'text-anchor': 'end', 'font-size': 10, class: 'fill-base-content', opacity: 0.65 }, new Intl.NumberFormat('en-ZA', { notation: 'compact', maximumFractionDigits: 1 }).format(value / 100)));
         }
-        svg.append(svgNode('text', { x: left - 10, y: top - 10, 'text-anchor': 'end', 'font-size': 10, class: 'fill-base-content' }, 'ZAR / day'));
+        svg.append(svgNode('text', { x: left - 10, y: top - 10, 'text-anchor': 'end', 'font-size': 10, class: 'fill-base-content' }, `${currencySymbol} / day`));
         points.forEach((point, index) => {
             const entry = row.points[index];
             const previous = row.points[index - 1];

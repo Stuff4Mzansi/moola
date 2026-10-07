@@ -120,11 +120,11 @@ test('shared debt schedules expose only the budget estimate and do not expose pr
     expect($response->viewData('events')->sole())->toMatchArray(['type' => 'debt', 'amount' => 20000]);
 });
 
-test('calendar warns about undated income and does not mix foreign currency subscriptions into totals', function () {
+test('calendar warns about undated income and includes all subscriptions in the household currency', function () {
     BudgetIncome::factory()->create(['budget_period_id' => $this->period->id, 'expected_date' => null]);
-    Subscription::factory()->create(['user_id' => $this->owner->id, 'currency' => 'USD']);
-    $response = $this->get(route('payment-calendar.index'))->assertOk()->assertSee('need an expected date')->assertSee('No exchange rate is assumed.');
-    expect($response->viewData('events'))->toHaveCount(0)->and($response->viewData('undatedIncome'))->toBe(1)->and($response->viewData('outgoing'))->toBe(0);
+    Subscription::factory()->create(['user_id' => $this->owner->id, 'currency' => 'USD', 'next_billing_date' => '2026-10-10', 'amount_cents' => 15999]);
+    $response = $this->get(route('payment-calendar.index'))->assertOk()->assertSee('need an expected date')->assertDontSee('No exchange rate is assumed.')->assertSee('R 159.99');
+    expect($response->viewData('events'))->toHaveCount(1)->and($response->viewData('undatedIncome'))->toBe(1)->and($response->viewData('outgoing'))->toBe(15999);
 });
 
 test('calendar navigation validates months and event types and renders leap year month end', function () {

@@ -76,7 +76,7 @@ test('group analytics aggregate categories and follow changes in income and spen
     $expense = BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $food->id, 'amount_cents' => 550000, 'date' => '2026-10-03']);
     $data = app(BudgetWorkspace::class)->data($this->period->fresh());
     expect($data['groupRows']->sole())->toMatchArray(['planned' => 600000, 'spent' => 550000, 'limit' => 500000, 'remaining' => -50000]);
-    $this->get(route('budgets.index'))->assertSee('Over limit by ZAR 500.00')->assertSee('Planned categories exceed the group limit.');
+    $this->get(route('budgets.index'))->assertSee('Over limit by R 500.00')->assertSee('Planned categories exceed the group limit.');
     $this->period->incomes()->sole()->update(['expected_cents' => 2000000]);
     expect(app(BudgetWorkspace::class)->data($this->period->fresh())['groupRows']->sole()['limit'])->toBe(1000000);
     $expense->delete();
@@ -157,7 +157,7 @@ test('overview charts aggregate groups and retain ungrouped spending with catego
     @$document->loadHTML($response->getContent());
     $xpath = new DOMXPath($document);
     expect($xpath->query('//*[@aria-labelledby="budget-comparison-title"]//*[@role="img"]')->length)->toBe(4);
-    expect($xpath->query('//*[@aria-labelledby="budget-comparison-title"]//*[@role="img" and @aria-label="Needs: ZAR 300.00 spent, ZAR 400.00 planned"]')->length)->toBe(1);
+    expect($xpath->query('//*[@aria-labelledby="budget-comparison-title"]//*[@role="img" and @aria-label="Needs: R 300.00 spent, R 400.00 planned"]')->length)->toBe(1);
     expect($xpath->query('//*[@aria-labelledby="budget-comparison-title"]//*[@role="img" and contains(@aria-label,"Food")]')->length)->toBe(0);
     expect($xpath->query('//*[@aria-labelledby="budget-comparison-title"]//details//li[contains(.,"Food")]')->length)->toBe(1);
 });
@@ -169,7 +169,7 @@ test('grouped overview warnings use group percentage limits instead of category 
     $food->allocated_cents = 50000;
     $food->save();
     BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $food->id, 'amount_cents' => 15000, 'date' => '2026-10-03']);
-    $this->get(route('budgets.index'))->assertOk()->assertSee('1 group over limit')->assertDontSee('1 category over limit')->assertSee('ZAR 50.00 over limit');
+    $this->get(route('budgets.index'))->assertOk()->assertSee('1 group over limit')->assertDontSee('1 category over limit')->assertSee('R 50.00 over limit');
     $needs->update(['percentage_basis_points' => null]);
     $this->get(route('budgets.index'))->assertOk()->assertSee('No group limits configured')->assertDontSee('1 group over limit');
 });

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\SetupRequest;
+use App\Models\AppSetting;
 use App\Models\User;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
@@ -32,6 +33,7 @@ class SetupController extends Controller
                 $user = new User($request->safe()->only(['name', 'email', 'password']));
                 $user->role = UserRole::SuperAdmin;
                 $user->save();
+                AppSetting::query()->updateOrCreate(['id' => 1], ['currency' => $request->validated('currency')]);
 
                 return $user;
             });

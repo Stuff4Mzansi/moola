@@ -10,7 +10,9 @@ export function liquidityGeometry(days, buffer = 0, viewportWidth = 0) {
     return { width, height, left, right, top, bottom, minimum, maximum, points, y };
 }
 
-const money = (value) => `ZAR ${new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 2 }).format(value / 100)}`;
+const currencyPrefix = document.body.dataset.currencyPrefix || 'R ';
+const currencySymbol = document.body.dataset.currencySymbol || 'R';
+const money = (value) => `${currencyPrefix}${new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 2 }).format(value / 100)}`;
 const date = (value) => new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
 
 function initializeCharts() {
@@ -34,7 +36,7 @@ function initializeCharts() {
                 svg.append(element('line', { x1: left, x2: right, y1: y(value), y2: y(value), stroke: 'currentColor', opacity: 0.1 }));
                 svg.append(element('text', { x: left - 8, y: y(value) + 4, fill: 'currentColor', opacity: 0.65, 'font-size': 10, 'text-anchor': 'end' }, new Intl.NumberFormat('en-ZA', { notation: 'compact', maximumFractionDigits: 1 }).format(value / 100)));
             }
-            svg.append(element('text', { x: left - 8, y: top - 3, fill: 'currentColor', 'font-size': 9, 'text-anchor': 'end' }, 'ZAR'));
+            svg.append(element('text', { x: left - 8, y: top - 3, fill: 'currentColor', 'font-size': 9, 'text-anchor': 'end' }, currencySymbol));
             [[0, 'error'], [buffer, 'warning']].forEach(([value, color]) => svg.append(element('line', { x1: left, x2: right, y1: y(value), y2: y(value), stroke: `var(--color-${color})`, 'stroke-dasharray': '3 4', opacity: 0.6 })));
             [['low', 'primary', false], ['closing', 'info', true]].forEach(([key, color, dashed]) => {
                 svg.append(element('polyline', { points: points.map(({ day, x }) => `${x},${y(day[key])}`).join(' '), fill: 'none', stroke: `var(--color-${color})`, 'stroke-width': 2, ...(dashed ? { 'stroke-dasharray': '5 4' } : {}) }));

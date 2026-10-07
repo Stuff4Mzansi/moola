@@ -73,9 +73,8 @@ class LiquidityAnalytics
                 $events['income:'.$income->id] = $this->event($date, $income->name, $remaining, 'income', 'income', route('budgets.index', ['period' => $income->budget_period_id, 'tab' => 'plan']));
             }
         }
-        $zarSubscriptions = Subscription::query()->where('user_id', $user->id)->where('currency', 'ZAR')->pluck('id');
-        $foreignSubscriptions = Subscription::query()->where('user_id', $user->id)->where('status', SubscriptionStatus::Active->value)->where('currency', '!=', 'ZAR')->count();
-        $commitments = BudgetCommitment::query()->whereIn('subscription_id', $zarSubscriptions)->whereIn('budget_period_id', BudgetPeriod::query()->whereIn('budget_id', $budgets->pluck('id'))->select('id'))->whereDate('scheduled_date', '>=', $today->subDays(90))->whereDate('scheduled_date', '<=', $until)->with('transaction')->orderBy('id')->get();
+        $subscriptions = Subscription::query()->where('user_id', $user->id)->pluck('id');
+        $commitments = BudgetCommitment::query()->whereIn('subscription_id', $subscriptions)->whereIn('budget_period_id', BudgetPeriod::query()->whereIn('budget_id', $budgets->pluck('id'))->select('id'))->whereDate('scheduled_date', '>=', $today->subDays(90))->whereDate('scheduled_date', '<=', $until)->with('transaction')->orderBy('id')->get();
         $paidSubscriptions = $commitments->filter(fn (BudgetCommitment $charge): bool => $charge->transaction !== null)->keyBy(fn (BudgetCommitment $charge): string => $charge->subscription_id.'|'.$charge->scheduled_date->toDateString());
         $selectedPeriods = BudgetPeriod::query()->whereIn('budget_id', $budgetIds)->pluck('id');
         $selectedCommitments = $commitments->whereIn('budget_period_id', $selectedPeriods)->where('is_current', true)->keyBy(fn (BudgetCommitment $charge): string => $charge->subscription_id.'|'.$charge->scheduled_date->toDateString());
@@ -87,7 +86,7 @@ class LiquidityAnalytics
                 $overdue++;
             }
         }
-        foreach (Subscription::query()->where('user_id', $user->id)->where('status', SubscriptionStatus::Active->value)->where('currency', 'ZAR')->get() as $subscription) {
+        foreach (Subscription::query()->where('user_id', $user->id)->where('status', SubscriptionStatus::Active->value)->get() as $subscription) {
             foreach ($subscription->renewalsBetween($today, $until) as $date) {
                 $key = $subscription->id.'|'.$date->toDateString();
                 if (! $paidSubscriptions->has($key)) {
@@ -176,7 +175,7 @@ class LiquidityAnalytics
             return ['goal' => $goal, 'allocated' => $items->sum('amount_cents'), 'ready' => min($ready, $saved)];
         })->values();
 
-        return ['preference' => $preference, 'budgets' => $budgets, 'budgetIds' => $budgetIds, 'assets' => $assetRows, 'groups' => $groups, 'reserves' => $reserves, 'accessible' => $accessible, 'protected' => $protected, 'free' => $free, 'emergency' => $emergency, 'runway' => $runway, 'essential' => $essential, 'minimums' => $minimums, 'overallocated' => $overallocated, 'unknown' => $assetRows->filter(fn (array $row): bool => $row['asset']->liquidity === 'unknown')->count(), 'stale' => $assetRows->where('accessible', true)->where('stale', true)->count(), 'missingIncome' => $missingIncome, 'missingIncomeAmount' => $missingIncomeAmount, 'overdue' => $overdue, 'horizon' => $horizon, 'until' => $until, 'events' => $events, 'daily' => $daily, 'lowest' => $lowest, 'nextIncome' => $nextIncome, 'beforeIncome' => $beforeIncome, 'availableBeforeIncome' => $availableBeforeIncome, 'shortfall' => max(0, $beforeIncome - $availableBeforeIncome), 'cashGap' => max(0, -$lowest['low']), 'foreignSubscriptions' => $foreignSubscriptions, 'bufferGap' => max(0, $preference->buffer_cents - $lowest['low']), 'scenario' => $scenario, 'goalReadiness' => $goalReadiness];
+        return ['preference' => $preference, 'budgets' => $budgets, 'budgetIds' => $budgetIds, 'assets' => $assetRows, 'groups' => $groups, 'reserves' => $reserves, 'accessible' => $accessible, 'protected' => $protected, 'free' => $free, 'emergency' => $emergency, 'runway' => $runway, 'essential' => $essential, 'minimums' => $minimums, 'overallocated' => $overallocated, 'unknown' => $assetRows->filter(fn (array $row): bool => $row['asset']->liquidity === 'unknown')->count(), 'stale' => $assetRows->where('accessible', true)->where('stale', true)->count(), 'missingIncome' => $missingIncome, 'missingIncomeAmount' => $missingIncomeAmount, 'overdue' => $overdue, 'horizon' => $horizon, 'until' => $until, 'events' => $events, 'daily' => $daily, 'lowest' => $lowest, 'nextIncome' => $nextIncome, 'beforeIncome' => $beforeIncome, 'availableBeforeIncome' => $availableBeforeIncome, 'shortfall' => max(0, $beforeIncome - $availableBeforeIncome), 'cashGap' => max(0, -$lowest['low']), 'bufferGap' => max(0, $preference->buffer_cents - $lowest['low']), 'scenario' => $scenario, 'goalReadiness' => $goalReadiness];
     }
 
     public function availableBy(Asset $asset, CarbonImmutable $date): bool

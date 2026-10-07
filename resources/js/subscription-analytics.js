@@ -20,7 +20,8 @@ function initializeSavingsCalculator() {
     const subscriptions = [...calculator.querySelectorAll('[data-savings-subscription]')];
     const target = calculator.querySelector('[data-savings-target]');
     const currency = new Intl.NumberFormat('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const formatMoney = (cents) => `ZAR ${currency.format(cents / 100)}`;
+    const currencyPrefix = document.body.dataset.currencyPrefix || 'R ';
+    const formatMoney = (cents) => `${currencyPrefix}${currency.format(cents / 100)}`;
 
     function updateSavings() {
         const selectedAnnualCents = subscriptions.reduce((total, subscription) => total + (subscription.checked ? Number(subscription.dataset.annualCents) : 0), 0);

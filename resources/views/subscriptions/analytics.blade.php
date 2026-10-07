@@ -16,14 +16,14 @@
         <div class="grid gap-3 md:grid-cols-3">
             <div class="rounded-sm border border-base-300 bg-base-100 p-3">
                 <p class="text-[11px] leading-snug opacity-65">Prepare for the next 7 days</p>
-                <p class="mt-1 text-base font-semibold tabular-nums">ZAR {{ number_format($analytics['next7DaysCostCents'] / 100, 2) }}</p>
+                <p class="mt-1 text-base font-semibold tabular-nums">{{ $currencyPrefix }}{{ number_format($analytics['next7DaysCostCents'] / 100, 2) }}</p>
                 <p class="mt-1 text-[11px] leading-snug opacity-65">{{ $analytics['next7DaysPaymentCount'] }} expected {{ $analytics['next7DaysPaymentCount'] === 1 ? 'payment' : 'payments' }}. Review these renewals before they are due.</p>
             </div>
             <div class="rounded-sm border border-base-300 bg-base-100 p-3">
                 <p class="text-[11px] leading-snug opacity-65">Highest forecast month</p>
                 @if($analytics['peakMonth'])
                     <p class="mt-1 text-base font-semibold tabular-nums">{{ $analytics['peakMonth']['label'] }}{{ $analytics['peakMonth']['is_partial'] ? ' (remaining)' : '' }}</p>
-                    <p class="mt-1 text-[11px] leading-snug opacity-65">ZAR {{ number_format($analytics['peakMonth']['amount_cents'] / 100, 2) }} in expected payments. Plan for this amount rather than the monthly average.</p>
+                    <p class="mt-1 text-[11px] leading-snug opacity-65">{{ $currencyPrefix }}{{ number_format($analytics['peakMonth']['amount_cents'] / 100, 2) }} in expected payments. Plan for this amount rather than the monthly average.</p>
                 @else
                     <p class="mt-1 text-base font-semibold">No payments in this forecast</p>
                     <p class="mt-1 text-[11px] leading-snug opacity-65">Your next billing dates fall beyond the displayed period.</p>
@@ -48,11 +48,11 @@
                                 <line x1="58" y1="{{ 190 - $step * 150 }}" x2="710" y2="{{ 190 - $step * 150 }}" stroke="currentColor" stroke-opacity="0.12" />
                                 <text x="50" y="{{ 194 - $step * 150 }}" text-anchor="end" fill="currentColor" font-size="9">{{ number_format($forecastMaximum * $step / 100, $forecastMaximum < 10000 ? 2 : 0) }}</text>
                             @endforeach
-                            <text x="8" y="20" fill="currentColor" font-size="9">ZAR</text>
+                            <text x="8" y="20" fill="currentColor" font-size="9">{{ $currencySymbol }}</text>
                             @foreach($analytics['monthlyForecast'] as $index => $month)
                                 @php $barHeight = $month['amount_cents'] / $forecastMaximum * 150; @endphp
                                 <g>
-                                    <title>{{ $month['label'] }}{{ $month['is_partial'] ? ' (remaining)' : '' }}: ZAR {{ number_format($month['amount_cents'] / 100, 2) }}, {{ $month['payment_count'] }} payments</title>
+                                    <title>{{ $month['label'] }}{{ $month['is_partial'] ? ' (remaining)' : '' }}: {{ $currencyPrefix }}{{ number_format($month['amount_cents'] / 100, 2) }}, {{ $month['payment_count'] }} payments</title>
                                     <rect x="{{ 70 + $index * 54 }}" y="{{ 190 - $barHeight }}" width="30" height="{{ $barHeight }}" rx="4" fill="{{ $analytics['peakMonth'] && $month['month'] === $analytics['peakMonth']['month'] ? '#f59e0b' : '#6366f1' }}" />
                                     <text x="{{ 85 + $index * 54 }}" y="210" text-anchor="middle" fill="currentColor" font-size="10">{{ substr($month['label'], 0, 3) }}{{ $month['is_partial'] ? '*' : '' }}</text>
                                     <text x="{{ 85 + $index * 54 }}" y="225" text-anchor="middle" fill="currentColor" font-size="9" opacity="0.6">{{ substr($month['label'], -4) }}</text>
@@ -64,10 +64,10 @@
                     @else
                         <p class="rounded-sm bg-base-200 p-3 text-[11px] leading-snug opacity-65">No renewal dates fall within the next 12 calendar months. Your active subscriptions still contribute to the recurring cost estimates.</p>
                     @endif
-                    <div class="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-base-200/60 px-3 py-2"><span class="text-[11px] leading-snug opacity-65">Expected across this forecast period</span><span class="text-sm font-semibold tabular-nums">ZAR {{ number_format($analytics['forecastTotalCents'] / 100, 2) }}</span></div>
+                    <div class="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-base-200/60 px-3 py-2"><span class="text-[11px] leading-snug opacity-65">Expected across this forecast period</span><span class="text-sm font-semibold tabular-nums">{{ $currencyPrefix }}{{ number_format($analytics['forecastTotalCents'] / 100, 2) }}</span></div>
                     <details>
                         <summary class="cursor-pointer text-xs font-medium">View monthly figures</summary>
-                        <div class="mt-2 max-h-48 overflow-auto" tabindex="0" role="region" aria-label="Monthly forecast figures"><table class="table table-xs"><thead class="sticky top-0 bg-base-200"><tr><th scope="col">Month</th><th scope="col">Expected payments</th><th scope="col">Amount (ZAR)</th></tr></thead><tbody>@foreach($analytics['monthlyForecast'] as $month)<tr><td>{{ $month['label'] }}{{ $month['is_partial'] ? ' (remaining)' : '' }}</td><td>{{ $month['payment_count'] }}</td><td class="tabular-nums">{{ number_format($month['amount_cents'] / 100, 2) }}</td></tr>@endforeach</tbody></table></div>
+                        <div class="mt-2 max-h-48 overflow-auto" tabindex="0" role="region" aria-label="Monthly forecast figures"><table class="table table-xs"><thead class="sticky top-0 bg-base-200"><tr><th scope="col">Month</th><th scope="col">Expected payments</th><th scope="col">Amount ({{ $currencySymbol }})</th></tr></thead><tbody>@foreach($analytics['monthlyForecast'] as $month)<tr><td>{{ $month['label'] }}{{ $month['is_partial'] ? ' (remaining)' : '' }}</td><td>{{ $month['payment_count'] }}</td><td class="tabular-nums">{{ number_format($month['amount_cents'] / 100, 2) }}</td></tr>@endforeach</tbody></table></div>
                     </details>
                 </div>
             </section>
@@ -79,9 +79,9 @@
                     <div class="max-h-64 space-y-2.5 overflow-auto pr-1" tabindex="0" role="region" aria-label="Largest subscription costs">
                     @foreach($analytics['largestSubscriptions'] as $subscriptionCost)
                         <div class="border-b border-base-300/60 pb-2.5 last:border-b-0 last:pb-0">
-                            <div class="mb-1 flex items-start justify-between gap-2 text-xs"><a class="link link-hover min-w-0 break-words font-semibold" href="{{ route('subscriptions.show', $subscriptionCost['id']) }}">{{ $subscriptionCost['name'] }}</a><span class="shrink-0 font-semibold tabular-nums text-orange-600">ZAR {{ number_format($subscriptionCost['monthly_cost_cents'] / 100, 2) }}/month</span></div>
+                            <div class="mb-1 flex items-start justify-between gap-2 text-xs"><a class="link link-hover min-w-0 break-words font-semibold" href="{{ route('subscriptions.show', $subscriptionCost['id']) }}">{{ $subscriptionCost['name'] }}</a><span class="shrink-0 font-semibold tabular-nums text-orange-600">{{ $currencyPrefix }}{{ number_format($subscriptionCost['monthly_cost_cents'] / 100, 2) }}/month</span></div>
                             <progress class="progress block h-1 w-full text-orange-600" max="{{ $analytics['largestSubscriptions'][0]['annual_cost_cents'] }}" value="{{ $subscriptionCost['annual_cost_cents'] }}" aria-label="{{ $subscriptionCost['name'] }} cost relative to the largest subscription"></progress>
-                            <p class="mt-1 text-[10px] opacity-55">{{ number_format($subscriptionCost['share'], 1) }}% of recurring costs · ZAR {{ number_format($subscriptionCost['annual_cost_cents'] / 100, 2) }}/year</p>
+                            <p class="mt-1 text-[10px] opacity-55">{{ number_format($subscriptionCost['share'], 1) }}% of recurring costs · {{ $currencyPrefix }}{{ number_format($subscriptionCost['annual_cost_cents'] / 100, 2) }}/year</p>
                         </div>
                     @endforeach
                     </div>
@@ -96,19 +96,19 @@
                         @foreach($analytics['activeSubscriptions'] as $subscriptionCost)
                             <label class="flex cursor-pointer items-start justify-between gap-2 text-xs">
                                 <span class="flex min-w-0 items-start gap-2"><input type="checkbox" class="checkbox checkbox-xs shrink-0" name="inputs[subscription_ids][]" value="{{ $subscriptionCost['id'] }}" data-savings-subscription data-annual-cents="{{ $subscriptionCost['annual_cost_cents'] }}"><span class="break-words">{{ $subscriptionCost['name'] }}</span></span>
-                                <span class="shrink-0 opacity-70">ZAR {{ number_format($subscriptionCost['monthly_cost_cents'] / 100, 2) }}/mo</span>
+                                <span class="shrink-0 opacity-70">{{ $currencyPrefix }}{{ number_format($subscriptionCost['monthly_cost_cents'] / 100, 2) }}/mo</span>
                             </label>
                         @endforeach
                     </fieldset>
                     <div class="grid gap-3 sm:grid-cols-2" role="status" aria-live="polite" aria-atomic="true">
-                        <div><p class="text-[11px] leading-snug opacity-65">Monthly equivalent reduction</p><p class="mt-1 text-base font-semibold tabular-nums text-success" data-savings-monthly>ZAR 0.00</p></div>
-                        <div><p class="text-[11px] leading-snug opacity-65">Annual equivalent reduction</p><p class="mt-1 text-base font-semibold tabular-nums text-success" data-savings-annual>ZAR 0.00</p></div>
+                        <div><p class="text-[11px] leading-snug opacity-65">Monthly equivalent reduction</p><p class="mt-1 text-base font-semibold tabular-nums text-success" data-savings-monthly>{{ $currencyPrefix }}0.00</p></div>
+                        <div><p class="text-[11px] leading-snug opacity-65">Annual equivalent reduction</p><p class="mt-1 text-base font-semibold tabular-nums text-success" data-savings-annual>{{ $currencyPrefix }}0.00</p></div>
                     </div>
                     <div class="space-y-2 rounded-sm bg-base-200 p-3">
-                        <div><div class="mb-1 flex justify-between gap-3 text-xs"><span>Current monthly equivalent</span><span>ZAR {{ number_format($monthlyCostCents / 100, 2) }}</span></div><div class="h-1.5 rounded-sm bg-primary" aria-hidden="true"></div></div>
-                        <div><div class="mb-1 flex justify-between gap-3 text-xs"><span>After selected changes</span><span data-savings-remaining>ZAR {{ number_format($monthlyCostCents / 100, 2) }}</span></div><div class="h-1.5 overflow-hidden rounded-sm bg-base-300" aria-hidden="true"><div class="h-full rounded-sm bg-success" style="width: 100%" data-savings-bar></div></div></div>
+                        <div><div class="mb-1 flex justify-between gap-3 text-xs"><span>Current monthly equivalent</span><span>{{ $currencyPrefix }}{{ number_format($monthlyCostCents / 100, 2) }}</span></div><div class="h-1.5 rounded-sm bg-primary" aria-hidden="true"></div></div>
+                        <div><div class="mb-1 flex justify-between gap-3 text-xs"><span>After selected changes</span><span data-savings-remaining>{{ $currencyPrefix }}{{ number_format($monthlyCostCents / 100, 2) }}</span></div><div class="h-1.5 overflow-hidden rounded-sm bg-base-300" aria-hidden="true"><div class="h-full rounded-sm bg-success" style="width: 100%" data-savings-bar></div></div></div>
                     </div>
-                    <div><label for="subscription-monthly-target" class="label">Monthly subscription target (optional, ZAR)</label><input id="subscription-monthly-target" name="inputs[target]" type="number" min="0" max="9999999.99" step="0.01" class="input input-sm w-full" placeholder="e.g. 500.00" data-savings-target><p class="mt-1 text-[11px] leading-snug opacity-65" data-savings-target-result role="status">Enter a target to compare it with your remaining monthly equivalent.</p></div>
+                    <div><label for="subscription-monthly-target" class="label">Monthly subscription target (optional, {{ $currencySymbol }})</label><input id="subscription-monthly-target" name="inputs[target]" type="number" min="0" max="9999999.99" step="0.01" class="input input-sm w-full" placeholder="e.g. 500.00" data-savings-target><p class="mt-1 text-[11px] leading-snug opacity-65" data-savings-target-result role="status">Enter a target to compare it with your remaining monthly equivalent.</p></div>
                     <button type="button" class="btn btn-sm btn-ghost self-start" data-savings-reset>Reset selections</button>
                     <button class="btn btn-sm btn-outline" type="submit">Keep this plan in Planning scenarios</button></form>
                     <p class="text-xs opacity-60">This scenario does not cancel or change subscriptions. Reductions assume future charges stop at current prices; paid charges and cancellation fees are excluded. Use Planning scenarios to name and save these assumptions.</p>

@@ -5,9 +5,9 @@
             </div>
             <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div class="card border border-base-300 bg-base-100"><div class="card-body"><p class="text-sm opacity-70">Active subscriptions</p><p class="text-3xl font-bold">{{ $activeCount }}</p></div></div>
-                <div class="card border border-base-300 bg-base-100"><div class="card-body"><p class="text-sm opacity-70">Monthly equivalent</p><p class="text-2xl font-bold">ZAR {{ number_format($monthlyCostCents / 100, 2) }}</p></div></div>
-                <div class="card border border-base-300 bg-base-100"><div class="card-body"><p class="text-sm opacity-70">Annual equivalent</p><p class="text-2xl font-bold">ZAR {{ number_format($analytics['annualCostCents'] / 100, 2) }}</p></div></div>
-                <div class="card border border-primary/30 bg-primary/5"><div class="card-body"><p class="text-sm opacity-70">Expected in next 7 days</p><p class="text-2xl font-bold">ZAR {{ number_format($analytics['next7DaysCostCents'] / 100, 2) }}</p><p class="text-xs opacity-60">{{ $analytics['next7DaysPaymentCount'] }} expected {{ $analytics['next7DaysPaymentCount'] === 1 ? 'payment' : 'payments' }}</p></div></div>
+                <div class="card border border-base-300 bg-base-100"><div class="card-body"><p class="text-sm opacity-70">Monthly equivalent</p><p class="text-2xl font-bold">{{ $currencyPrefix }}{{ number_format($monthlyCostCents / 100, 2) }}</p></div></div>
+                <div class="card border border-base-300 bg-base-100"><div class="card-body"><p class="text-sm opacity-70">Annual equivalent</p><p class="text-2xl font-bold">{{ $currencyPrefix }}{{ number_format($analytics['annualCostCents'] / 100, 2) }}</p></div></div>
+                <div class="card border border-primary/30 bg-primary/5"><div class="card-body"><p class="text-sm opacity-70">Expected in next 7 days</p><p class="text-2xl font-bold">{{ $currencyPrefix }}{{ number_format($analytics['next7DaysCostCents'] / 100, 2) }}</p><p class="text-xs opacity-60">{{ $analytics['next7DaysPaymentCount'] }} expected {{ $analytics['next7DaysPaymentCount'] === 1 ? 'payment' : 'payments' }}</p></div></div>
             </div>
             <p class="text-sm opacity-70">Your active subscriptions only. Monthly and annual equivalents are estimates; upcoming renewals are forecasts, not confirmed payments.</p>
             @if($activeCount > 0)
@@ -20,7 +20,7 @@
                                 @forelse($renewals as $renewal)
                                     <a class="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0 link-hover" href="{{ route('subscriptions.show', $renewal['subscription']) }}">
                                         <div><p class="font-semibold">{{ $renewal['subscription']->name }}</p><p class="mt-1 text-sm opacity-60">{{ $renewal['date']->format('d M Y') }}</p></div>
-                                        <span class="shrink-0 font-semibold">ZAR {{ number_format($renewal['subscription']->amount_cents / 100, 2) }}</span>
+                                        <span class="shrink-0 font-semibold">{{ $currencyPrefix }}{{ number_format($renewal['subscription']->amount_cents / 100, 2) }}</span>
                                     </a>
                                 @empty
                                     <p class="py-4 text-sm opacity-70">No active subscriptions are due in the next 30 days.</p>
@@ -28,7 +28,7 @@
                             </div>
                             @if($analytics['largestSubscriptions'])
                                 @php $largestCost = $analytics['largestSubscriptions'][0]; @endphp
-                                <div class="rounded-sm bg-base-200 p-4"><p class="text-xs opacity-60">Largest recurring cost</p><p class="mt-1 text-sm"><a class="link link-hover font-semibold" href="{{ route('subscriptions.show', $largestCost['id']) }}">{{ $largestCost['name'] }}</a> Â· ZAR {{ number_format($largestCost['monthly_cost_cents'] / 100, 2) }}/month equivalent</p></div>
+                                <div class="rounded-sm bg-base-200 p-4"><p class="text-xs opacity-60">Largest recurring cost</p><p class="mt-1 text-sm"><a class="link link-hover font-semibold" href="{{ route('subscriptions.show', $largestCost['id']) }}">{{ $largestCost['name'] }}</a> Â· {{ $currencyPrefix }}{{ number_format($largestCost['monthly_cost_cents'] / 100, 2) }}/month equivalent</p></div>
                             @endif
                             <a class="link link-primary self-start text-sm" href="{{ route('subscriptions.index') }}">Explore forecasts and potential savings</a>
                         </div>

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\CurrencySettings;
 use App\Http\Controllers\NotificationController;
 use App\Models\BudgetTransaction;
 use App\Models\SavingsContribution;
@@ -31,6 +32,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Illuminate\Support\Facades\View::composer('*', function (View $view): void {
+            $currency = app(CurrencySettings::class);
+            $view->with(['currencyCode' => $currency->code(), 'currencySymbol' => $currency->symbol(), 'currencyPrefix' => $currency->prefix()]);
+        });
         \Illuminate\Support\Facades\View::composer('layouts.app', function (View $view): void {
             if (auth()->check()) {
                 $view->with(app(NotificationController::class)->bellData(request()));

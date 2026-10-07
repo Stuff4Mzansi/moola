@@ -2,7 +2,7 @@
 @section('title', 'Savings goals')
 @section('content')
 @php
-    $money = fn (int $cents): string => 'ZAR '.number_format($cents / 100, 2);
+    $money = fn (int $cents): string => $currencyPrefix.number_format($cents / 100, 2);
     $amount = fn (int $cents): string => number_format($cents / 100, 2, '.', '');
     $tab = in_array(request('tab'), ['contributions', 'planning'], true) ? request('tab') : 'overview';
 @endphp

@@ -9,7 +9,7 @@
                         <circle cx="60" cy="60" r="44" fill="none" stroke="currentColor" stroke-width="14" class="text-base-300" />
                         @foreach($analytics['categories'] as $index => $category)
                             <circle cx="60" cy="60" r="44" fill="none" stroke="{{ $chartColours[$index % count($chartColours)] }}" stroke-width="14" pathLength="100" stroke-dasharray="{{ $category['share'] }} {{ 100 - $category['share'] }}" stroke-dashoffset="{{ -$categoryOffset }}" transform="rotate(-90 60 60)">
-                                <title>{{ $category['name'] }}: {{ number_format($category['share'], 1) }}%, ZAR {{ number_format($category['monthly_cost_cents'] / 100, 2) }} monthly equivalent</title>
+                                <title>{{ $category['name'] }}: {{ number_format($category['share'], 1) }}%, {{ $currencyPrefix }}{{ number_format($category['monthly_cost_cents'] / 100, 2) }} monthly equivalent</title>
                             </circle>
                             @php $categoryOffset += $category['share']; @endphp
                         @endforeach
@@ -21,7 +21,7 @@
                         @foreach($analytics['categories'] as $index => $category)
                             <li class="flex items-center justify-between gap-2 py-1.5 text-[11px]">
                                 <span class="flex min-w-0 items-start gap-1.5"><span class="mt-1 size-2 shrink-0 rounded-sm" style="background-color: {{ $chartColours[$index % count($chartColours)] }}" aria-hidden="true"></span><span class="break-words">{{ $category['name'] }}</span></span>
-                                <span class="shrink-0 text-right tabular-nums"><span class="font-semibold">ZAR {{ number_format($category['monthly_cost_cents'] / 100, 2) }}</span><span class="ml-1.5 text-[10px] opacity-55">{{ number_format($category['share'], 1) }}%</span></span>
+                                <span class="shrink-0 text-right tabular-nums"><span class="font-semibold">{{ $currencyPrefix }}{{ number_format($category['monthly_cost_cents'] / 100, 2) }}</span><span class="ml-1.5 text-[10px] opacity-55">{{ number_format($category['share'], 1) }}%</span></span>
                             </li>
                         @endforeach
                     </ul>

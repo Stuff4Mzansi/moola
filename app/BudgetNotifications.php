@@ -72,7 +72,7 @@ class BudgetNotifications
         $today = CarbonImmutable::today();
         $budget = $period->budget;
         $events = [];
-        $money = fn (int $cents): string => 'ZAR '.number_format($cents / 100, 2);
+        $money = fn (int $cents): string => app(CurrencySettings::class)->format($cents);
         $expected = collect(app(BudgetWorkspace::class)->expectedCommitments($period))->keyBy(fn (array $charge): string => $charge['subscription_id'].'|'.$charge['scheduled_date']);
         $expectedRecurring = collect(app(BudgetRecurringExpenses::class)->expected($period))->keyBy(fn (array $charge): string => $charge['budget_recurring_expense_id'].'|'.$charge['scheduled_date']);
         foreach (['subscription' => $data['commitments'], 'recurring' => $data['recurringCharges']] as $type => $charges) {
@@ -124,7 +124,7 @@ class BudgetNotifications
             return;
         }
         $over = $spent > $limit;
-        $money = fn (int $cents): string => 'ZAR '.number_format($cents / 100, 2);
+        $money = fn (int $cents): string => app(CurrencySettings::class)->format($cents);
         $events[] = ['key' => $key.':'.($over ? 'over' : 'near'), 'type' => $type, 'title' => $name.($over ? ' is over its limit' : ' is nearing its limit'), 'message' => $money($spent).' spent of '.$money($limit).'. '.($over ? $money($spent - $limit).' over the limit.' : $money($limit - $spent).' remains.').' Review your spending or adjust the plan.', 'tab' => 'overview'];
     }
 }

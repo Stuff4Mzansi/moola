@@ -29,7 +29,9 @@ function initializeBudgetTrends() {
     const find = (name) => section.querySelector(`[data-trend-${name}]`);
     const selector = find('budget');
     const range = find('range');
-    const money = (cents) => `ZAR ${new Intl.NumberFormat('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100)}`;
+    const currencyPrefix = document.body.dataset.currencyPrefix || 'R ';
+    const currencySymbol = document.body.dataset.currencySymbol || 'R';
+    const money = (cents) => `${currencyPrefix}${new Intl.NumberFormat('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100)}`;
     const date = (day) => new Intl.DateTimeFormat('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Johannesburg' }).format(new Date(`${day}T12:00:00+02:00`));
     const shortDate = (day) => new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', timeZone: 'Africa/Johannesburg' }).format(new Date(`${day}T12:00:00+02:00`));
     let mode = 'line';
@@ -71,7 +73,7 @@ function initializeBudgetTrends() {
             const label = new Intl.NumberFormat('en-ZA', { notation: 'compact', maximumFractionDigits: 1 }).format(value / 100);
             svg.append(svgElement('text', { x: left - 12, y: position + 4, 'text-anchor': 'end', 'font-size': 11, class: 'fill-base-content', opacity: 0.6 }, label));
         }
-        svg.append(svgElement('text', { x: left - 12, y: top - 12, 'text-anchor': 'end', 'font-size': 10, class: 'fill-base-content', opacity: 0.6 }, 'ZAR'));
+        svg.append(svgElement('text', { x: left - 12, y: top - 12, 'text-anchor': 'end', 'font-size': 10, class: 'fill-base-content', opacity: 0.6 }, currencySymbol));
         if (mode === 'line' && points.length > 1) {
             svg.append(svgElement('path', { d: points.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.plannedY}`).join(' '), fill: 'none', class: 'stroke-primary', 'stroke-width': 2.5 }));
             points.slice(1).forEach((point, index) => {

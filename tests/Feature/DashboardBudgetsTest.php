@@ -33,7 +33,7 @@ beforeEach(function () {
 test('dashboard separates actual spending from recurring forecasts and uses workspace totals', function () {
     BudgetRecurringExpense::factory()->create(['budget_id' => $this->budget->id, 'category_name' => 'Home', 'name' => 'Electricity', 'start_date' => '2026-10-05', 'amount_cents' => 30000]);
     $response = $this->get(route('dashboard'))->assertOk()->assertSee('Your budgets at a glance')->assertSee('My October plan')
-        ->assertSee('Room after scheduled expenses')->assertSee('ZAR 500.00')->assertSee('Spending by category')
+        ->assertSee('Room after scheduled expenses')->assertSee('R 500.00')->assertSee('Spending by category')
         ->assertSee('Allocate money')->assertSee('not your bank balance');
     $card = $response->viewData('budgetOverview')['cards']->sole();
     expect($card['totals'])->toBe(app(BudgetWorkspace::class)->data($this->period->fresh())['totals'])

@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\CurrencySettings;
 use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class SetupRequest extends FormRequest
@@ -28,6 +30,7 @@ class SetupRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', Password::min(12)],
+            'currency' => ['required', Rule::in(array_keys(CurrencySettings::CURRENCIES))],
         ];
     }
 }

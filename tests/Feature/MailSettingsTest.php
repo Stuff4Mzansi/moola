@@ -3,6 +3,7 @@
 use App\BudgetNotificationMail;
 use App\BudgetNotifications;
 use App\Mail\BudgetReminderMail;
+use App\Models\AppSetting;
 use App\Models\Budget;
 use App\Models\BudgetCategory;
 use App\Models\BudgetIncome;
@@ -11,6 +12,7 @@ use App\Models\BudgetPeriod;
 use App\Models\BudgetTransaction;
 use App\Models\FinancialNotification;
 use App\Models\MailSetting;
+use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -30,8 +32,23 @@ test('only admins can view configure and test SMTP settings', function () {
     $member = User::factory()->create();
     $this->actingAs($member)->get(route('settings.edit'))->assertForbidden();
     $this->put(route('settings.mail.update'), $this->settings)->assertForbidden();
+    $this->put(route('settings.currency.update'), ['currency' => 'USD'])->assertForbidden();
     $this->post(route('settings.mail.test'))->assertForbidden();
     expect(MailSetting::query()->count())->toBe(0);
+});
+
+test('admin can change the household currency without converting stored subscription amounts', function () {
+    $subscription = Subscription::factory()->for($this->admin)->create(['amount_cents' => 15999, 'currency' => 'ZAR']);
+
+    $this->put(route('settings.currency.update'), ['currency' => 'USD'])
+        ->assertRedirect(route('settings.edit'))
+        ->assertSessionHas('status', 'Currency saved. Existing amounts were not converted.');
+
+    expect(AppSetting::query()->sole()->currency)->toBe('USD')
+        ->and($subscription->fresh()->currency)->toBe('USD')
+        ->and($subscription->fresh()->amount_cents)->toBe(15999);
+
+    $this->get(route('subscriptions.show', $subscription))->assertOk()->assertSee('$159.99');
 });
 
 test('SMTP passwords are encrypted retained when blank removable and never displayed or flashed', function () {

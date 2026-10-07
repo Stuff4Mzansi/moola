@@ -11,7 +11,8 @@ function initializeBudgetPage() {
     let pendingMutations = 0;
     let activeTab = 'overview';
     const submittingForms = new WeakSet();
-    const money = (cents) => `ZAR ${new Intl.NumberFormat('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100)}`;
+    const currencyPrefix = document.body.dataset.currencyPrefix || 'R ';
+    const money = (cents) => `${currencyPrefix}${new Intl.NumberFormat('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100)}`;
     const editing = () => workspace.contains(document.activeElement) && document.activeElement.matches('input:not([type=hidden]), textarea, select');
 
     function selectTab(name, focus = false) {

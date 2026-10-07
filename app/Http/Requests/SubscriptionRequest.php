@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\BillingFrequency;
+use App\CurrencySettings;
 use App\Models\Subscription;
 use App\SubscriptionStatus;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -34,7 +35,7 @@ class SubscriptionRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'amount' => ['required', 'numeric', 'min:0.01', 'max:9999999.99', 'regex:/^\d+(?:\.\d{1,2})?$/'],
-            'currency' => ['required', Rule::in(['ZAR'])],
+            'currency' => ['required', Rule::in([app(CurrencySettings::class)->code()])],
             'billing_frequency' => ['required', Rule::enum(BillingFrequency::class)],
             'next_billing_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:1900-01-01', 'before_or_equal:2100-12-31', ...$this->reactivationDateRules()],
             'status' => ['required', Rule::enum(SubscriptionStatus::class)],

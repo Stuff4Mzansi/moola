@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AppSetting;
 use App\Models\User;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,7 +15,7 @@ test('first visit requires admin setup before any authenticated functionality', 
 test('setup renders when no administrator exists even if members exist', function () {
     User::factory()->create();
 
-    $this->get(route('setup.create'))->assertOk()->assertSee('Create super admin account');
+    $this->get(route('setup.create'))->assertOk()->assertSee('Create super admin account')->assertSee('Household currency');
 });
 
 test('setup creates and authenticates the super admin with a hashed password', function () {
@@ -23,12 +24,14 @@ test('setup creates and authenticates the super admin with a hashed password', f
         'email' => 'owner@example.com',
         'password' => 'a-long-owner-password',
         'password_confirmation' => 'a-long-owner-password',
+        'currency' => 'USD',
         'role' => 'member',
     ])->assertRedirect(route('dashboard'));
 
     $owner = User::query()->sole();
     expect($owner->role)->toBe(UserRole::SuperAdmin)
-        ->and(Hash::check('a-long-owner-password', $owner->password))->toBeTrue();
+        ->and(Hash::check('a-long-owner-password', $owner->password))->toBeTrue()
+        ->and(AppSetting::query()->sole()->currency)->toBe('USD');
     $this->assertAuthenticatedAs($owner);
     $this->get(route('dashboard'))->assertOk()->assertSee('Manage users');
 });
@@ -52,7 +55,8 @@ test('invalid setup cannot create a user', function () {
         'email' => 'invalid',
         'password' => 'short',
         'password_confirmation' => 'different',
-    ])->assertSessionHasErrors(['name', 'email', 'password']);
+        'currency' => 'invalid',
+    ])->assertSessionHasErrors(['name', 'email', 'password', 'currency']);
 
     $this->assertDatabaseCount('users', 0);
     $this->assertGuest();

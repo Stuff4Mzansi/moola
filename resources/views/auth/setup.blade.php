@@ -20,6 +20,16 @@
             @error('email')<p id="email-error" class="mt-1 text-sm text-error" role="alert">{{ $message }}</p>@enderror
         </div>
         <div>
+            <label class="label" for="currency">Household currency</label>
+            <select class="select w-full" id="currency" name="currency" required aria-describedby="currency-help">
+                @foreach(\App\CurrencySettings::CURRENCIES as $code => $currency)
+                    <option value="{{ $code }}" @selected(old('currency', \App\CurrencySettings::DEFAULT) === $code)>{{ $currency['label'] }} ({{ $currency['symbol'] }})</option>
+                @endforeach
+            </select>
+            <p id="currency-help" class="mt-1 text-sm opacity-70">Changing this later updates the currency symbol only; amounts are not converted.</p>
+            @error('currency')<p class="mt-1 text-sm text-error" role="alert">{{ $message }}</p>@enderror
+        </div>
+        <div>
             <label class="label" for="password">Password</label>
             <input class="input w-full" id="password" name="password" type="password" autocomplete="new-password" minlength="12" required aria-describedby="password-help @error('password') password-error @enderror" @error('password') aria-invalid="true" @enderror>
             <p id="password-help" class="mt-1 text-sm opacity-70">Use at least 12 characters.</p>

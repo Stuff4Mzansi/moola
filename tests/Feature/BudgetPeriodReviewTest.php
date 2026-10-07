@@ -47,8 +47,8 @@ test('ended period reviews reconcile linked savings and debt principal without c
     expect($response->viewData('totals'))->toMatchArray(['received' => 100000, 'spent' => 45000]);
     expect($response->viewData('periodReview'))->toMatchArray(['status' => 'ended', 'principal' => 17000, 'debtInterest' => 3000, 'savings' => 10000, 'variance' => -5000, 'recordedBalance' => 55000, 'pendingAmount' => 0, 'missingIncome' => [['name' => $this->period->incomes()->sole()->name, 'amount' => 20000]], 'overLimits' => [['name' => 'Everyday', 'amount' => 5000]]]);
     $response->assertSee('Your plan and what happened')->assertSee('Where recorded spending went')
-        ->assertSee('Other spending: ZAR 150.00 (33.3%)')->assertSee('Debt interest paid: ZAR 30.00 (6.7%)')
-        ->assertSee('Allocated spending ZAR 400.00; recorded spending ZAR 450.00.');
+        ->assertSee('Other spending: R 150.00 (33.3%)')->assertSee('Debt interest paid: R 30.00 (6.7%)')
+        ->assertSee('Allocated spending R 400.00; recorded spending R 450.00.');
 });
 
 test('review checklist includes only current unpaid charges inside the selected period', function () {
@@ -70,7 +70,7 @@ test('review updates after deleting and restoring a linked savings expense', fun
     $expense = BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $this->category->id, 'savings_goal_id' => $goal->id, 'amount_cents' => 10000, 'date' => '2026-09-20']);
     $expense->delete();
     $response = $this->getJson(route('budgets.index', ['period' => $this->period->id, 'tab' => 'review']))->assertOk();
-    expect($response->json('html'))->toContain('Savings contributed', 'ZAR 0.00');
+    expect($response->json('html'))->toContain('Savings contributed', 'R 0.00');
     $this->get(route('budgets.index', ['period' => $this->period->id]))->assertViewHas('periodReview', fn (array $review): bool => $review['savings'] === 0);
     $expense->restore();
     $this->get(route('budgets.index', ['period' => $this->period->id]))->assertViewHas('periodReview', fn (array $review): bool => $review['savings'] === 10000);

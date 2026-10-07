@@ -20,21 +20,21 @@ use Illuminate\Support\Collection;
 class PaymentCalendar
 {
     /**
-     * @return array{events: Collection<int, array{date: string, name: string, amount: int, type: string, scope: string, url: string}>, undatedIncome: int, foreignSubscriptions: int}
+     * @return array{events: Collection<int, array{date: string, name: string, amount: int, type: string, scope: string, url: string}>, undatedIncome: int}
      */
     public function build(User $user, CarbonImmutable $from, CarbonImmutable $until): array
     {
         $today = CarbonImmutable::today();
         $from = $from->max($today);
         $budgets = Budget::visibleTo($user)->with(['periods' => fn (HasMany $periods): HasMany => $periods->orderByDesc('start_date')])->orderBy('name')->get()->keyBy('id');
-        $zarSubscriptionIds = Subscription::query()->whereIn('user_id', $budgets->pluck('user_id')->push($user->id)->unique())->where('currency', 'ZAR')->pluck('id')->flip();
+        $subscriptionIds = Subscription::query()->whereIn('user_id', $budgets->pluck('user_id')->push($user->id)->unique())->pluck('id')->flip();
         $periods = BudgetPeriod::query()->whereIn('budget_id', $budgets->keys())->whereDate('start_date', '<=', $until)->whereDate('end_date', '>=', $from)->get();
         $commitments = BudgetCommitment::query()->whereIn('budget_period_id', $periods->pluck('id'))->whereBetween('scheduled_date', [$from->toDateString(), $until->toDateString()])->with('transaction')->get();
         $paidSubscriptions = $commitments->filter(fn (BudgetCommitment $charge): bool => $charge->transaction !== null)->keyBy(fn (BudgetCommitment $charge): string => $charge->subscription_id.'|'.$charge->scheduled_date->toDateString());
         $charges = BudgetRecurringCharge::query()->whereIn('budget_period_id', $periods->pluck('id'))->whereBetween('scheduled_date', [$from->toDateString(), $until->toDateString()])->with('transaction')->get();
         $paidRecurring = $charges->filter(fn (BudgetRecurringCharge $charge): bool => $charge->transaction !== null)->keyBy(fn (BudgetRecurringCharge $charge): string => $charge->budget_recurring_expense_id.'|'.$charge->scheduled_date->toDateString());
         $events = [];
-        $subscriptions = Subscription::query()->where('user_id', $user->id)->where('status', SubscriptionStatus::Active->value)->where('currency', 'ZAR')->get();
+        $subscriptions = Subscription::query()->where('user_id', $user->id)->where('status', SubscriptionStatus::Active->value)->get();
         foreach ($subscriptions as $subscription) {
             foreach ($subscription->renewalsBetween($from, $until) as $date) {
                 $key = $subscription->id.'|'.$date->toDateString();
@@ -48,7 +48,7 @@ class PaymentCalendar
             foreach (app(BudgetWorkspace::class)->expectedCommitments($period) as $charge) {
                 $date = CarbonImmutable::parse($charge['scheduled_date']);
                 $key = $charge['subscription_id'].'|'.$charge['scheduled_date'];
-                if ($date->betweenIncluded($from, $until) && ! $paidSubscriptions->has($key) && $zarSubscriptionIds->has($charge['subscription_id'])) {
+                if ($date->betweenIncluded($from, $until) && ! $paidSubscriptions->has($key) && $subscriptionIds->has($charge['subscription_id'])) {
                     $events['subscription:'.$key] = $this->event($date, $charge['name'], $charge['amount_cents'], 'subscription', $period->budget->name, route('budgets.index', ['period' => $period->id, 'tab' => 'subscriptions']));
                 }
             }
@@ -103,7 +103,6 @@ class PaymentCalendar
         return [
             'events' => collect($events)->sortBy(fn (array $event): string => $event['date'].'|'.$event['type'].'|'.$event['name'])->values(),
             'undatedIncome' => $incomes->filter(fn (BudgetIncome $income): bool => $income->expected_date === null && $income->expected_cents > $income->received_cents)->count(),
-            'foreignSubscriptions' => Subscription::query()->where('user_id', $user->id)->where('status', SubscriptionStatus::Active->value)->where('currency', '!=', 'ZAR')->count(),
         ];
     }
 
