@@ -12,7 +12,24 @@
     @if($errors->any())<div class="alert alert-error text-sm" role="alert"><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
     <nav class="tabs tabs-border" aria-label="Savings goal sections">@foreach(['overview' => 'Overview', 'contributions' => 'Contributions', 'planning' => 'Planning'] as $name => $label)<a @class(['tab', 'tab-active' => $tab === $name]) href="{{ route('goals.index', ['tab' => $name]) }}" @if($tab === $name) aria-current="page" @endif>{{ $label }}</a>@endforeach</nav>
     @if($tab === 'overview')
-        <div class="grid gap-3 sm:grid-cols-3">@foreach(['Saved towards goals' => $saved, 'Combined targets' => $target, 'Monthly saving plan' => $monthly] as $label => $value)<div class="rounded-sm border border-base-300 bg-base-100 p-3"><p class="text-xs opacity-60">{{ $label }}</p><p class="mt-1 text-xl font-semibold">{{ $money($value) }}</p></div>@endforeach</div>
+        @php $combinedProgress = $target > 0 ? min(100, (int) floor($saved * 100 / $target)) : 0; @endphp
+        <div class="grid items-stretch gap-3 sm:grid-cols-3">
+            <section class="flex min-w-0 flex-col rounded-sm border border-green-600/15 bg-green-600/5 p-3" aria-label="Savings accumulated towards goals">
+                <div class="flex items-center gap-1.5"><x-lucide-piggy-bank class="size-3.5 shrink-0 text-green-600" aria-hidden="true" /><p class="text-[11px] font-medium opacity-70">Saved towards goals</p></div>
+                <p class="mt-1.5 break-words text-base font-semibold tracking-tight tabular-nums text-green-600 sm:text-lg">{{ $money($saved) }}</p>
+                @if($target > 0)<div class="mt-auto pt-2"><div class="flex flex-wrap items-baseline justify-between gap-1 text-[11px]"><span class="opacity-60">of {{ $money($target) }} combined targets</span><span class="font-semibold tabular-nums text-green-600">{{ number_format($saved / $target * 100, 1) }}%</span></div><div class="mt-1 h-1 overflow-hidden rounded-full bg-green-600/10" role="progressbar" aria-label="Saved towards combined goal targets" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $combinedProgress }}" aria-valuetext="{{ number_format($saved / $target * 100, 1) }}% of combined targets"><div class="h-full rounded-full bg-green-600" style="width: {{ $combinedProgress }}%"></div></div></div>@else<p class="mt-auto pt-2 text-[11px] opacity-60">Add a goal to start saving.</p>@endif
+            </section>
+            <section class="flex min-w-0 flex-col rounded-sm border border-primary/15 bg-primary/5 p-3" aria-label="Combined savings goal targets">
+                <div class="flex items-center gap-1.5"><x-lucide-target class="size-3.5 shrink-0 text-primary" aria-hidden="true" /><p class="text-[11px] font-medium opacity-70">Combined targets</p></div>
+                <p class="mt-1.5 break-words text-base font-semibold tracking-tight tabular-nums text-primary sm:text-lg">{{ $money($target) }}</p>
+                <p class="mt-auto pt-2 text-[11px] opacity-60">{{ $rows->count() }} {{ str('goal')->plural($rows->count()) }} &middot; {{ $completed }} {{ str('complete')->plural($completed) }}</p>
+            </section>
+            <section class="flex min-w-0 flex-col rounded-sm border border-orange-600/15 bg-orange-600/5 p-3" aria-label="Monthly savings plan">
+                <div class="flex items-center gap-1.5"><x-lucide-calendar-days class="size-3.5 shrink-0 text-orange-600" aria-hidden="true" /><p class="text-[11px] font-medium opacity-70">Monthly saving plan</p></div>
+                <p class="mt-1.5 break-words text-base font-semibold tracking-tight tabular-nums text-orange-600 sm:text-lg">{{ $money($monthly) }}</p>
+                <p class="mt-auto pt-2 text-[11px] opacity-60">Planned across active goals</p>
+            </section>
+        </div>
         <div class="grid items-stretch gap-3 md:grid-cols-2">
             @forelse($rows as $row)
                 @php

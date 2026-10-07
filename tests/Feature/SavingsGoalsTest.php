@@ -47,7 +47,14 @@ test('goals can be managed on a private single page with monetary and date valid
     $goal = SavingsGoal::query()->where('name', 'Emergency fund')->sole();
     expect($goal->target_cents)->toBe(500025)->and($goal->user_id)->toBe($this->owner->id);
     $this->put(route('goals.update', $goal), savingsDetails(['name' => 'Updated goal', 'target_date' => null]))->assertRedirect();
-    $this->get(route('goals.index'))->assertOk()->assertSee('Updated goal')->assertSee('Contributions over time')->assertSee('data-confirm-title="Delete savings goal?"', false);
+    $this->get(route('goals.index'))->assertOk()
+        ->assertSee('Updated goal')
+        ->assertSee('Saved towards goals')
+        ->assertSee('Combined targets')
+        ->assertSee('Monthly saving plan')
+        ->assertSee('Saved towards combined goal targets')
+        ->assertSee('Contributions over time')
+        ->assertSee('data-confirm-title="Delete savings goal?"', false);
     foreach ([['target' => '0'], ['opening' => '1.001'], ['monthly' => '-1'], ['target_date' => '2026-09-01'], ['start_date' => '2026-10-05']] as $invalid) {
         $this->postJson(route('goals.store'), savingsDetails($invalid))->assertUnprocessable();
     }
