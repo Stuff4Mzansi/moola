@@ -168,6 +168,18 @@ function initializeWorthForms() {
     }
     filter?.addEventListener('change', filterAssets);
     filterAssets();
+    const liabilityFilter = page.querySelector('[data-liability-filter]');
+    function filterLiabilities() {
+        if (!liabilityFilter) return;
+        let visible = 0;
+        page.querySelectorAll('[data-liability-row]').forEach((row) => {
+            row.hidden = Boolean(liabilityFilter.value && row.dataset.liabilityRow !== liabilityFilter.value);
+            if (!row.hidden) visible++;
+        });
+        page.querySelector('[data-liability-filter-empty]').classList.toggle('hidden', !liabilityFilter.value || visible > 0);
+    }
+    liabilityFilter?.addEventListener('change', filterLiabilities);
+    filterLiabilities();
     const reopen = JSON.parse(page.querySelector('[data-worth-reopen]')?.textContent || 'null');
     if (reopen?.kind === 'asset') openAsset(reopen.data);
     if (reopen?.kind === 'liability') openLiability(reopen.data);

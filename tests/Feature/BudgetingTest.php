@@ -49,7 +49,12 @@ test('category allocations autosave exact cents and manual limits follow the sub
 
 test('income sources distinguish expected and received funds', function () {
     $this->postJson(budgetActionUrl($this->period, 'income-save'), budgetActionPayload($this->period, ['name' => 'Freelance', 'expected_amount' => '500', 'received_amount' => '250', 'received_date' => '2026-10-03']))->assertOk();
-    $this->get(route('budgets.index'))->assertOk()->assertViewHas('totals', fn (array $totals): bool => $totals['expected'] === 150000 && $totals['received'] === 25000);
+    $food = $this->period->categories()->where('name', 'Food')->sole();
+    BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $food->id, 'amount_cents' => 4000, 'date' => '2026-10-03']);
+    $this->get(route('budgets.index'))
+        ->assertOk()
+        ->assertSee('Actual money left: R 210.00')
+        ->assertViewHas('totals', fn (array $totals): bool => $totals['expected'] === 150000 && $totals['received'] === 25000 && $totals['spent'] === 4000);
     $this->postJson(budgetActionUrl($this->period, 'income-save'), budgetActionPayload($this->period, ['name' => 'Missing date', 'expected_amount' => '100', 'received_amount' => '20']))->assertUnprocessable()->assertJsonValidationErrors('received_date');
 });
 

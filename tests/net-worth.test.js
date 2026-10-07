@@ -35,7 +35,7 @@ test('empty zero and single snapshot charts have finite scales and range selecti
     assert.equal(worthGeometry(single, false, false, 1000).width, 1000);
 });
 
-function worthHarness(reopen = null) {
+function worthHarness(reopen = null, liabilityKinds = []) {
     const handlers = {};
     const form = (names) => {
         const fields = new Map(names.map((name) => [name, { value: '', disabled: false, addEventListener() {} }]));
@@ -50,7 +50,19 @@ function worthHarness(reopen = null) {
     const snapshotForm = form(['date']);
     const dialog = (form) => ({ open: false, querySelector() { return form; }, showModal() { this.open = true; } });
     const assetDialog = dialog(assetForm), valueDialog = dialog(valueForm), liabilityDialog = dialog(liabilityForm), liabilityValueDialog = dialog(liabilityValueForm), snapshotDialog = dialog(snapshotForm);
-    const page = { addEventListener(name, handler) { handlers[name] = handler; }, querySelector(selector) { return selector === '[data-worth-reopen]' ? { textContent: JSON.stringify(reopen) } : null; } };
+    const liabilityFilter = { value: '', addEventListener(name, handler) { this[name] = handler; } };
+    const liabilityFilterEmpty = { classList: { toggle(name, hidden) { this.hidden = hidden; } } };
+    const liabilityRows = liabilityKinds.map((kind) => ({ dataset: { liabilityRow: kind }, hidden: false }));
+    const page = {
+        addEventListener(name, handler) { handlers[name] = handler; },
+        querySelector(selector) {
+            if (selector === '[data-worth-reopen]') return { textContent: JSON.stringify(reopen) };
+            if (selector === '[data-liability-filter]') return liabilityFilter;
+            if (selector === '[data-liability-filter-empty]') return liabilityFilterEmpty;
+            return null;
+        },
+        querySelectorAll(selector) { return selector === '[data-liability-row]' ? liabilityRows : []; },
+    };
     const document = { addEventListener(name, handler) { handlers[name] = handler; }, querySelectorAll() { return []; }, querySelector() { return page; }, getElementById(id) { if (id === 'asset-edit') return assetDialog; if (id === 'asset-value') return valueDialog; if (id === 'liability-edit') return liabilityDialog; if (id === 'liability-value') return liabilityValueDialog; return snapshotDialog; } };
     const source = readFileSync(new URL('../resources/js/net-worth.js', import.meta.url), 'utf8').replaceAll('export function', 'function');
     vm.runInNewContext(source, { document });
@@ -59,8 +71,23 @@ function worthHarness(reopen = null) {
         const button = { dataset: { [attribute]: data ? JSON.stringify(data) : '' }, hasAttribute(name) { return name === 'data-' + attribute.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase()); } };
         handlers.click({ target: { closest() { return button; } } });
     };
-    return { click, assetForm, valueForm, liabilityForm, liabilityValueForm, snapshotForm, assetDialog, valueDialog, liabilityDialog, liabilityValueDialog, snapshotDialog };
+    return { click, assetForm, valueForm, liabilityForm, liabilityValueForm, snapshotForm, assetDialog, valueDialog, liabilityDialog, liabilityValueDialog, snapshotDialog, liabilityFilter, liabilityFilterEmpty, liabilityRows };
 }
+
+test('liability type filter updates visible rows and reports an unmatched type', () => {
+    const { liabilityFilter, liabilityFilterEmpty, liabilityRows } = worthHarness(null, ['credit_card', 'mortgage']);
+
+    assert.deepEqual(liabilityRows.map((row) => row.hidden), [false, false]);
+    liabilityFilter.value = 'mortgage';
+    liabilityFilter.change();
+    assert.deepEqual(liabilityRows.map((row) => row.hidden), [true, false]);
+    assert.equal(liabilityFilterEmpty.classList.hidden, true);
+
+    liabilityFilter.value = 'tax';
+    liabilityFilter.change();
+    assert.deepEqual(liabilityRows.map((row) => row.hidden), [true, true]);
+    assert.equal(liabilityFilterEmpty.classList.hidden, false);
+});
 
 test('asset metadata edits hide initial values and a new asset resets those fields', () => {
     const { click, assetForm } = worthHarness();

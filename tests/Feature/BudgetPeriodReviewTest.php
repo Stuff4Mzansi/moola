@@ -29,25 +29,48 @@ beforeEach(function () {
     $this->category = BudgetCategory::factory()->create(['budget_period_id' => $this->period->id, 'name' => 'Everyday', 'allocated_cents' => 40000]);
 });
 
-test('ended period reviews reconcile linked savings and debt principal without counting them twice', function () {
+test('ended period reviews chart recorded spending by its assigned budget category', function () {
     BudgetIncome::factory()->create(['budget_period_id' => $this->period->id, 'expected_cents' => 120000, 'received_cents' => 100000, 'received_date' => '2026-09-12']);
     $debt = Debt::factory()->create(['user_id' => $this->owner->id, 'balance_date' => '2026-09-01']);
     $charge = BudgetRecurringCharge::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $this->category->id, 'debt_id' => $debt->id, 'scheduled_date' => '2026-09-12']);
     BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $this->category->id, 'budget_recurring_charge_id' => $charge->id, 'amount_cents' => 20000, 'interest_cents' => 3000, 'date' => '2026-09-12']);
     $goal = SavingsGoal::factory()->create(['user_id' => $this->owner->id, 'start_date' => '2026-09-01']);
     BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $this->category->id, 'savings_goal_id' => $goal->id, 'amount_cents' => 10000, 'date' => '2026-10-02']);
-    BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $this->category->id, 'amount_cents' => 15000, 'date' => '2026-09-20']);
+    BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $this->category->id, 'amount_cents' => 10000, 'date' => '2026-09-20']);
+    $this->category->update(['allocated_cents' => 35000]);
+    $transport = BudgetCategory::factory()->create(['budget_period_id' => $this->period->id, 'name' => 'Transport', 'allocated_cents' => 5000]);
+    BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $transport->id, 'amount_cents' => 5000, 'date' => '2026-09-20']);
     DebtPayment::factory()->create(['debt_id' => $debt->id, 'amount_cents' => 50000, 'date' => '2026-09-20']);
     SavingsContribution::factory()->create(['savings_goal_id' => $goal->id, 'amount_cents' => 50000, 'date' => '2026-09-20']);
 
     $response = $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'review']))->assertOk()
         ->assertSee('End-of-period financial review')->assertSee('Copy plan to next period')
-        ->assertSee('data-budget-panel="review"', false)->assertSee('Debt principal reduced')
+        ->assertSee('data-budget-panel="review"', false)
         ->assertSee('aria-selected="true" tabindex="0" data-budget-tab="review"', false);
     expect($response->viewData('totals'))->toMatchArray(['received' => 100000, 'spent' => 45000]);
-    expect($response->viewData('periodReview'))->toMatchArray(['status' => 'ended', 'principal' => 17000, 'debtInterest' => 3000, 'savings' => 10000, 'variance' => -5000, 'recordedBalance' => 55000, 'pendingAmount' => 0, 'missingIncome' => [['name' => $this->period->incomes()->sole()->name, 'amount' => 20000]], 'overLimits' => [['name' => 'Everyday', 'amount' => 5000]]]);
-    $response->assertSee('Your plan and what happened')->assertSee('Where recorded spending went')
-        ->assertSee('Other spending: R 150.00 (33.3%)')->assertSee('Debt interest paid: R 30.00 (6.7%)')
+    $review = $response->viewData('periodReview');
+    expect($review)->toMatchArray(['status' => 'ended', 'variance' => -5000, 'recordedBalance' => 55000, 'plannedReachedDate' => '2026-10-02', 'receivedReachedDate' => null, 'spendingCategories' => [['name' => 'Everyday', 'amount' => 40000], ['name' => 'Transport', 'amount' => 5000]], 'pendingAmount' => 0, 'missingIncome' => [['name' => $this->period->incomes()->sole()->name, 'amount' => 20000]], 'overLimits' => [['name' => 'Everyday', 'amount' => 5000]]]);
+    expect(array_slice($review['dailySpending'], 0, 2))->toBe([
+        ['date' => '2026-09-12', 'amount' => 20000, 'cumulative' => 20000],
+        ['date' => '2026-09-13', 'amount' => 0, 'cumulative' => 20000],
+    ]);
+    $response->assertSee('Your plan and what happened')->assertSee('Recorded spending by category')
+        ->assertSee('Daily spending across the period')
+        ->assertSee('data-review-daily-spending-line', false)
+        ->assertSee('data-review-threshold="planned" data-review-threshold-date="2026-10-02"', false)
+        ->assertSee('stroke="var(--color-primary)" stroke-width="3"', false)
+        ->assertDontSee('data-review-threshold="received"', false)
+        ->assertSee('Planned amount reached (R 400.00 on 02 Oct)')
+        ->assertSee('Income received reached')
+        ->assertSee('data-spending-category-slice data-spending-category-label="Everyday"', false)
+        ->assertSee('data-spending-category-slice data-spending-category-label="Transport"', false)
+        ->assertSee('stroke-width="16" pathLength="100"', false)
+        ->assertSee('data-spending-category-legend="Everyday"', false)
+        ->assertSee('data-spending-category-legend="Transport"', false)
+        ->assertSee('aria-hidden="true"><p class="text-[11px] opacity-65">Recorded</p>', false)
+        ->assertSee('Everyday')->assertSee('R 400.00')->assertSee('88.9%')
+        ->assertSee('Transport')->assertSee('R 50.00')->assertSee('11.1%')
+        ->assertDontSee('Debt interest paid')->assertDontSee('Savings contributed')
         ->assertSee('Allocated spending R 400.00; recorded spending R 450.00.');
 });
 
@@ -70,10 +93,40 @@ test('review updates after deleting and restoring a linked savings expense', fun
     $expense = BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $this->category->id, 'savings_goal_id' => $goal->id, 'amount_cents' => 10000, 'date' => '2026-09-20']);
     $expense->delete();
     $response = $this->getJson(route('budgets.index', ['period' => $this->period->id, 'tab' => 'review']))->assertOk();
-    expect($response->json('html'))->toContain('Savings contributed', 'R 0.00');
-    $this->get(route('budgets.index', ['period' => $this->period->id]))->assertViewHas('periodReview', fn (array $review): bool => $review['savings'] === 0);
+    expect($response->json('html'))->not->toContain('R 100.00');
+    $this->get(route('budgets.index', ['period' => $this->period->id]))->assertViewHas('periodReview', fn (array $review): bool => $review['spendingCategories'] === []);
     $expense->restore();
-    $this->get(route('budgets.index', ['period' => $this->period->id]))->assertViewHas('periodReview', fn (array $review): bool => $review['savings'] === 10000);
+    $this->get(route('budgets.index', ['period' => $this->period->id]))->assertViewHas('periodReview', fn (array $review): bool => $review['spendingCategories'] === [['name' => 'Everyday', 'amount' => 10000]]);
+});
+
+test('review keeps uncategorised budget transactions visible and excludes standalone goal contributions', function () {
+    $goal = SavingsGoal::factory()->create(['user_id' => $this->owner->id, 'start_date' => '2026-09-01']);
+    BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => null, 'amount_cents' => 2500, 'date' => '2026-09-20']);
+    SavingsContribution::factory()->create(['savings_goal_id' => $goal->id, 'amount_cents' => 90000, 'date' => '2026-09-20']);
+
+    $response = $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'review']))->assertOk();
+
+    expect($response->viewData('totals')['spent'])->toBe(2500)
+        ->and($response->viewData('periodReview')['spendingCategories'])->toBe([['name' => 'Uncategorised', 'amount' => 2500]]);
+    $response->assertSee('Uncategorised')->assertSee('R 25.00')->assertSee('100.0%')->assertDontSee('R 900.00');
+});
+
+test('daily spending timeline marks the dates planned spending and received income are reached', function () {
+    $this->category->update(['allocated_cents' => 20000]);
+    BudgetIncome::factory()->create(['budget_period_id' => $this->period->id, 'expected_cents' => 30000, 'received_cents' => 30000, 'received_date' => '2026-09-12']);
+    BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $this->category->id, 'amount_cents' => 20000, 'date' => '2026-09-12']);
+    BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $this->category->id, 'amount_cents' => 15000, 'date' => '2026-09-20']);
+
+    $response = $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'review']))->assertOk();
+
+    expect($response->viewData('periodReview'))->toMatchArray([
+        'plannedReachedDate' => '2026-09-12',
+        'receivedReachedDate' => '2026-09-20',
+    ]);
+    $response->assertSee('data-review-threshold="planned"', false)
+        ->assertSee('data-review-threshold="received"', false)
+        ->assertSee('Planned amount reached (R 200.00 on 12 Sep)')
+        ->assertSee('Income received reached (R 300.00 on 20 Sep)');
 });
 
 test('review distinguishes an inclusive final day from an ended period and upcoming periods', function () {
@@ -94,7 +147,7 @@ test('household viewers can review shared entries without seeing private goals o
     SavingsContribution::factory()->create(['savings_goal_id' => $goal->id, 'amount_cents' => 90000, 'date' => '2026-09-20']);
     $this->actingAs($viewer)->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'review']))->assertOk()
         ->assertDontSee('Private goal name')->assertDontSee('Copy plan to next period')
-        ->assertViewHas('periodReview', fn (array $review): bool => $review['savings'] === 0 && $review['principal'] === 0);
+        ->assertViewHas('periodReview', fn (array $review): bool => $review['spendingCategories'] === []);
     $this->budget->members()->detach($viewer);
     $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'review']))->assertForbidden();
 });
@@ -125,6 +178,6 @@ test('empty period charts show honest empty states and safely render zero baseli
     $this->category->update(['allocated_cents' => 0]);
     $response = $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'review']))->assertOk();
     $response->assertSee('No expected income entered')->assertSee('No category allocations entered.')
-        ->assertSee('Record expenses to see your spending breakdown.');
-    expect($response->viewData('periodReview')['debtInterest'])->toBe(0);
+        ->assertSee('Record expenses in this budget period to see spending by category.');
+    expect($response->viewData('periodReview')['spendingCategories'])->toBe([]);
 });

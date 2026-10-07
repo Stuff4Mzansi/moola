@@ -1,11 +1,6 @@
 @php
     $comparisonMaximum = max(1, $totals['expected'], $totals['received'], $totals['planned'], $totals['spent']);
-    $spendingParts = [
-        ['label' => 'Other spending', 'amount' => max(0, $totals['spent'] - $periodReview['principal'] - $periodReview['debtInterest'] - $periodReview['savings']), 'colour' => 'text-primary', 'background' => 'bg-primary'],
-        ['label' => 'Debt principal reduced', 'amount' => $periodReview['principal'], 'colour' => 'text-info', 'background' => 'bg-info'],
-        ['label' => 'Debt interest paid', 'amount' => $periodReview['debtInterest'], 'colour' => 'text-warning', 'background' => 'bg-warning'],
-        ['label' => 'Savings contributed', 'amount' => $periodReview['savings'], 'colour' => 'text-success', 'background' => 'bg-success'],
-    ];
+    $spendingChartColours = ['#6366f1', '#14b8a6', '#f59e0b', '#ec4899', '#0ea5e9', '#8b5cf6', '#84cc16', '#f97316'];
     $spendingOffset = 0;
 @endphp
 <div class="mt-5 grid gap-4 xl:grid-cols-2">
@@ -32,28 +27,37 @@
         </div>
     </section>
     <section class="rounded-sm border border-base-300 bg-base-200/30 p-4 sm:p-5" aria-labelledby="review-spending-title">
-        <h4 id="review-spending-title" class="font-semibold">Where recorded spending went</h4>
-        <p class="mt-1 text-xs opacity-65">Every recorded amount appears once across these four parts.</p>
-        <div class="mt-4 flex flex-col items-center gap-5 sm:flex-row">
-            <div class="relative size-44 shrink-0">
-                <svg viewBox="0 0 120 120" class="size-full" role="img" aria-labelledby="review-spending-title review-spending-description">
-                    <circle cx="60" cy="60" r="44" fill="none" stroke="currentColor" stroke-width="13" class="text-base-300/60" />
-                    @foreach($spendingParts as $part)
-                        @if($totals['spent'] > 0 && $part['amount'] > 0)
-                            @php $share = $part['amount'] / $totals['spent'] * 100; @endphp
-                            <circle cx="60" cy="60" r="44" fill="none" stroke="currentColor" stroke-width="13" pathLength="100" stroke-dasharray="{{ $share }} {{ 100 - $share }}" stroke-dashoffset="{{ -$spendingOffset }}" transform="rotate(-90 60 60)" class="{{ $part['colour'] }}"><title>{{ $part['label'] }}: {{ $money($part['amount']) }} ({{ number_format($share, 1) }}%)</title></circle>
-                            @php $spendingOffset += $share; @endphp
-                        @endif
+        <div class="flex flex-wrap items-baseline justify-between gap-2"><h4 id="review-spending-title" class="font-semibold">Recorded spending by category</h4><span class="text-xs tabular-nums opacity-65">{{ $money($totals['spent']) }} total</span></div>
+        <p class="mt-1 text-xs opacity-65">Each slice and its matching label show a category's share of spending recorded in this budget period.</p>
+        @if($periodReview['spendingCategories'])
+            <div class="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+                <div class="relative size-40 shrink-0">
+                    <svg viewBox="0 0 120 120" class="size-full" role="img" aria-labelledby="review-spending-title review-spending-description">
+                        <circle cx="60" cy="60" r="44" fill="none" stroke="currentColor" stroke-width="16" class="text-base-300/60" />
+                    @foreach($periodReview['spendingCategories'] as $index => $category)
+                        @php
+                            $share = $totals['spent'] > 0 ? $category['amount'] / $totals['spent'] * 100 : 0;
+                            $colour = $spendingChartColours[$index % count($spendingChartColours)];
+                        @endphp
+                        <circle data-spending-category-slice data-spending-category-label="{{ $category['name'] }}" cx="60" cy="60" r="44" fill="none" stroke="{{ $colour }}" stroke-width="16" pathLength="100" stroke-dasharray="{{ $share }} {{ 100 - $share }}" stroke-dashoffset="{{ -$spendingOffset }}" transform="rotate(-90 60 60)" aria-label="{{ $category['name'] }}: {{ $money($category['amount']) }}, {{ number_format($share, 1) }}%"><title>{{ $category['name'] }}: {{ $money($category['amount']) }} ({{ number_format($share, 1) }}%)</title></circle>
+                        @php $spendingOffset += $share; @endphp
                     @endforeach
-                </svg>
-                <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-8 text-center" aria-hidden="true"><p class="text-xs opacity-65">Recorded</p><p class="mt-1 text-base font-bold tabular-nums">{{ number_format($totals['spent'] / 100, 2) }}</p><p class="text-xs opacity-65">{{ $currencySymbol }}</p></div>
+                    </svg>
+                    <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-7 text-center" aria-hidden="true"><p class="text-[11px] opacity-65">Recorded</p><p class="mt-1 break-words text-xs font-bold tabular-nums">{{ $money($totals['spent']) }}</p></div>
+                </div>
+                <p id="review-spending-description" class="sr-only">Pie chart of recorded spending by category. The adjacent legend labels every slice with its amount and percentage.</p>
+                <ul class="max-h-64 w-full min-w-0 divide-y divide-base-300/60 overflow-y-auto pr-1" tabindex="0" aria-label="Recorded spending by budget category">
+                    @foreach($periodReview['spendingCategories'] as $index => $category)
+                        @php $share = $totals['spent'] > 0 ? $category['amount'] / $totals['spent'] * 100 : 0; @endphp
+                        <li data-spending-category-legend="{{ $category['name'] }}" class="flex items-start justify-between gap-2 py-1 text-[11px]">
+                            <span class="flex min-w-0 items-start gap-1.5"><span class="mt-0.5 size-2.5 shrink-0 rounded-sm" style="background-color: {{ $spendingChartColours[$index % count($spendingChartColours)] }}" aria-hidden="true"></span><span class="break-words">{{ $category['name'] }}</span></span>
+                            <span class="shrink-0 text-right tabular-nums"><span class="font-semibold">{{ $money($category['amount']) }}</span><span class="ml-1.5 text-[10px] opacity-65">{{ number_format($share, 1) }}%</span></span>
+                        </li>
+                    @endforeach
+                </ul>
             </div>
-            <ul id="review-spending-description" class="w-full min-w-0 space-y-3">
-                @foreach($spendingParts as $part)
-                    <li class="flex items-start justify-between gap-3 text-sm"><span class="flex min-w-0 items-start gap-2"><span class="mt-1 size-2.5 shrink-0 rounded-sm {{ $part['background'] }}" aria-hidden="true"></span><span>{{ $part['label'] }}</span></span><span class="shrink-0 text-right"><span class="font-semibold tabular-nums">{{ $money($part['amount']) }}</span><span class="block text-xs opacity-65">{{ $totals['spent'] > 0 ? number_format($part['amount'] / $totals['spent'] * 100, 1).'%' : 'No spending yet' }}</span></span></li>
-                @endforeach
-            </ul>
-        </div>
-        @if($totals['spent'] === 0)<p class="mt-4 text-sm opacity-65">Record expenses to see your spending breakdown.</p>@else<p class="mt-4 text-xs opacity-65">Debt interest is shown separately from principal. Other spending includes the remaining recorded expenses.</p>@endif
+        @else
+            <p class="mt-4 text-sm opacity-65">Record expenses in this budget period to see spending by category.</p>
+        @endif
     </section>
 </div>

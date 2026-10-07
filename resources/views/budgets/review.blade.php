@@ -4,9 +4,10 @@
             <div><h3 id="period-review-title" class="text-xl font-semibold">{{ $periodReview['status'] === 'ended' ? 'End-of-period financial review' : 'Period review preview' }}</h3><p class="mt-1 text-sm opacity-65">{{ $period->start_date->format('d M Y') }} - {{ $period->end_date->format('d M Y') }} &middot; Both dates included</p></div>
             <span class="badge badge-outline">{{ ['ended' => 'Period ended', 'current' => 'In progress', 'upcoming' => 'Upcoming period'][$periodReview['status']] }}</span>
         </div>
-        <p class="mt-3 text-sm opacity-65">{{ $periodReview['status'] === 'ended' ? 'Review your recorded results and confirm unfinished items before starting your next plan.' : 'These are the records entered so far. Results can change until the period has ended and your records are complete.' }}</p>
+        <p class="my-3 text-xs opacity-65">{{ $periodReview['status'] === 'ended' ? 'Review your recorded results and confirm unfinished items before starting your next plan.' : 'These are the records entered so far. Results can change until the period has ended and your records are complete.' }}</p>
+        @include('budgets.review-spending-trend')
         @include('budgets.review-charts')
-        <p class="mt-4 text-xs opacity-65">Debt and savings figures are included in recorded spending, not additional expenses. Entries recorded only on the Debts or Goals pages are excluded from this budget review.</p>
+        <p class="mt-4 text-xs opacity-65">Spending is grouped by the category assigned to each budget-period transaction. Debt or savings entries recorded only on the Debts or Goals pages are not included here.</p>
         <div class="mt-4 rounded-sm border border-base-300 p-3"><p class="text-xs opacity-65">Received income minus recorded spending</p><p @class(['mt-1 text-xl font-semibold', 'text-error' => $periodReview['recordedBalance'] < 0])>{{ $money($periodReview['recordedBalance']) }}</p><p class="mt-1 text-xs opacity-65">This is a difference between budget records, not your bank balance or money available to spend. Unrecorded payments can change the result.</p></div>
     </section>
     <section class="rounded-sm border border-base-300 bg-base-100 p-5" aria-labelledby="period-review-checklist-title">

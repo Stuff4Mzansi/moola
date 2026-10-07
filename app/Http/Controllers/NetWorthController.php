@@ -121,7 +121,7 @@ class NetWorthController extends Controller
             $liability->valuations()->create(['amount_cents' => BudgetMoney::cents($request->input('amount')), 'date' => $request->input('date')]);
         });
 
-        return to_route('net-worth.index', ['tab' => 'assets'])->with('status', 'Liability added.');
+        return to_route('net-worth.index', ['tab' => 'liabilities'])->with('status', 'Liability added.');
     }
 
     public function updateLiability(LiabilityRequest $request, Liability $liability): RedirectResponse
@@ -133,7 +133,7 @@ class NetWorthController extends Controller
             $liability->save();
         });
 
-        return to_route('net-worth.index', ['tab' => 'assets'])->with('status', 'Liability details saved.');
+        return to_route('net-worth.index', ['tab' => 'liabilities'])->with('status', 'Liability details saved.');
     }
 
     public function valueLiability(LiabilityValuationRequest $request, Liability $liability): RedirectResponse
@@ -151,7 +151,7 @@ class NetWorthController extends Controller
             $value->fill(['amount_cents' => BudgetMoney::cents($request->input('amount')), 'date' => $request->input('date'), 'notes' => $request->input('notes')])->save();
         });
 
-        return to_route('net-worth.index', ['tab' => 'assets'])->with('status', 'Liability value saved. Snapshots keep their original totals.');
+        return to_route('net-worth.index', ['tab' => 'liabilities'])->with('status', 'Liability value saved. Snapshots keep their original totals.');
     }
 
     public function destroyLiability(Liability $liability): RedirectResponse
@@ -159,7 +159,7 @@ class NetWorthController extends Controller
         Gate::authorize('delete', $liability);
         $this->locked(fn (): ?bool => $liability->delete());
 
-        return to_route('net-worth.index', ['tab' => 'assets'])->with('status', 'Liability removed from current net worth. Snapshots were kept.')->with('undo_liability', $liability->id);
+        return to_route('net-worth.index', ['tab' => 'liabilities'])->with('status', 'Liability removed from current net worth. Snapshots were kept.')->with('undo_liability', $liability->id);
     }
 
     public function restoreLiability(Liability $liability): RedirectResponse
@@ -168,7 +168,7 @@ class NetWorthController extends Controller
         abort_unless($liability->trashed(), 404);
         $this->locked(fn (): bool => $liability->restore());
 
-        return to_route('net-worth.index', ['tab' => 'assets'])->with('status', 'Liability restored.');
+        return to_route('net-worth.index', ['tab' => 'liabilities'])->with('status', 'Liability restored.');
     }
 
     public function removeValueLiability(Liability $liability, LiabilityValuation $valuation): RedirectResponse

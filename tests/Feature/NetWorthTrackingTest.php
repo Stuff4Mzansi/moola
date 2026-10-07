@@ -48,7 +48,9 @@ test('assets can be added edited and valued from one page with correct monetary 
 test('manual liabilities use liability types and reduce net worth without debt payments', function () {
     $payload = ['name' => 'Credit card', 'kind' => 'credit_card', 'institution' => 'My bank', 'amount' => '500', 'date' => '2026-10-04', 'form_kind' => 'liability'];
 
-    $this->post(route('net-worth.liabilities.store'), $payload)->assertRedirect()->assertSessionHasNoErrors();
+    $this->post(route('net-worth.liabilities.store'), $payload)
+        ->assertRedirect(route('net-worth.index', ['tab' => 'liabilities']))
+        ->assertSessionHasNoErrors();
 
     $liability = Liability::query()->where('name', 'Credit card')->sole();
     expect($liability->kind)->toBe('credit_card')
@@ -64,6 +66,31 @@ test('manual liabilities use liability types and reduce net worth without debt p
         ->assertSee('Credit card')
         ->assertSee('Mortgage')
         ->assertSee('Other liability');
+});
+
+test('liabilities have a dedicated tab with snapshot management actions', function () {
+    $liability = Liability::factory()->create([
+        'user_id' => $this->owner->id,
+        'name' => 'Home loan',
+        'kind' => 'mortgage',
+        'institution' => 'My bank',
+    ]);
+    $liability->valuations()->create(['amount_cents' => 42500, 'date' => '2026-10-04']);
+
+    $this->get(route('net-worth.index', ['tab' => 'liabilities']))
+        ->assertOk()
+        ->assertSee('aria-current="page"', false)
+        ->assertSee('Your liabilities')
+        ->assertSee('Home loan')
+        ->assertSee('Mortgage')
+        ->assertSee('My bank')
+        ->assertSee('R 425.00')
+        ->assertSee('data-liability-filter', false)
+        ->assertSee('<option value="credit_card">Credit card</option>', false)
+        ->assertSee('data-liability-row="mortgage"', false)
+        ->assertSee('data-liability-edit', false)
+        ->assertSee('data-liability-value', false)
+        ->assertSee('Remove liability?');
 });
 
 test('current values use the newest date and same day updates do not duplicate balances', function () {
