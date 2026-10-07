@@ -36,8 +36,12 @@ class DashboardController extends Controller
             ->sortBy(fn (array $renewal): string => $renewal['date']->toDateString())
             ->take(5)->values();
 
-        $debtOverview = $debtWorkspace->build($request->user());
-        $debtPlan = $debtPayoff->simulate($debtOverview['rows']->map(fn (array $row): array => ['id' => $row['debt']->id, 'name' => $row['debt']->name, 'balance' => $row['balance'], 'rate' => $row['debt']->annual_rate_basis_points, 'minimum' => $row['debt']->minimum_payment_cents])->all(), 0, 'avalanche');
+        $debtOverview = null;
+        $debtPlan = null;
+        if (config('features.debt_tracking')) {
+            $debtOverview = $debtWorkspace->build($request->user());
+            $debtPlan = $debtPayoff->simulate($debtOverview['rows']->map(fn (array $row): array => ['id' => $row['debt']->id, 'name' => $row['debt']->name, 'balance' => $row['balance'], 'rate' => $row['debt']->annual_rate_basis_points, 'minimum' => $row['debt']->minimum_payment_cents])->all(), 0, 'avalanche');
+        }
 
         $netWorthOverview = $netWorthWorkspace->build($request->user(), false);
         $liquidityOverview = $liquidityAnalytics->build($request->user(), [], $netWorthOverview);

@@ -188,7 +188,7 @@ class BudgetController extends Controller
                         break;
                     case 'recurring-save':
                         $expense = $request->filled('id') ? $period->budget->recurringExpenses()->findOrFail($request->integer('id')) : $period->budget->recurringExpenses()->make();
-                        abort_if($expense->debt_id !== null, 422, 'Manage this linked schedule on the Debts page.');
+                        abort_if(config('features.debt_tracking') && $expense->debt_id !== null, 422, 'Manage this linked schedule on the Debts page.');
                         $category = $period->categories()->findOrFail($request->integer('category_id'));
                         $expense->fill([...$request->safe()->only(['name', 'billing_frequency', 'start_date', 'end_date', 'is_active']), 'category_name' => $category->name, 'amount_cents' => BudgetMoney::cents($request->input('amount'))])->save();
                         $period->budget->periods()->where('id', '!=', $period->id)->increment('version');
@@ -197,7 +197,7 @@ class BudgetController extends Controller
                         break;
                     case 'recurring-remove':
                         $expense = $period->budget->recurringExpenses()->findOrFail($request->integer('id'));
-                        abort_if($expense->debt_id !== null, 422, 'Unlink this schedule on the Debts page.');
+                        abort_if(config('features.debt_tracking') && $expense->debt_id !== null, 422, 'Unlink this schedule on the Debts page.');
                         $expense->delete();
                         $period->budget->periods()->where('id', '!=', $period->id)->increment('version');
                         app(BudgetRecurringExpenses::class)->sync($period, true);

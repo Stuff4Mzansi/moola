@@ -92,6 +92,7 @@ test('forecast uses remaining dated income and warns about undated or past incom
 });
 
 test('subscriptions recurring snapshots and debt minima are deduplicated including recorded payments', function () {
+    config(['features.debt_tracking' => true]);
     $sub = Subscription::factory()->create(['user_id' => $this->owner->id, 'amount_cents' => 10000, 'next_billing_date' => '2026-10-10']);
     $commit = BudgetCommitment::factory()->create(['budget_period_id' => $this->period->id, 'subscription_id' => $sub->id, 'amount_cents' => 10000, 'scheduled_date' => '2026-10-10']);
     $expense = BudgetRecurringExpense::factory()->create(['budget_id' => $this->budget->id, 'start_date' => '2026-10-12', 'amount_cents' => 20000]);
@@ -146,6 +147,7 @@ test('rescheduling a subscription does not forecast both the old and new renewal
 });
 
 test('runway uses accessible emergency reserves and essentials plus debt minimums', function () {
+    config(['features.debt_tracking' => true]);
     AssetReserve::factory()->create(['asset_id' => $this->asset->id, 'amount_cents' => 60000]);
     LiquidityPreference::factory()->create(['user_id' => $this->owner->id, 'essential_cents' => 20000]);
     Debt::factory()->create(['user_id' => $this->owner->id, 'minimum_payment_cents' => 10000]);

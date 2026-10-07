@@ -91,7 +91,7 @@
                                 ['route' => 'payment-calendar.index', 'match' => 'payment-calendar.*', 'label' => 'Payment calendar', 'icon' => 'calendar-days'],
                                 ['route' => 'planning-scenarios.index', 'match' => 'planning-scenarios.*', 'label' => 'Planning scenarios', 'icon' => 'git-branch'],
                                 ['route' => 'subscriptions.index', 'match' => 'subscriptions.*', 'label' => 'Subscriptions', 'icon' => 'repeat'],
-                                ['route' => 'debts.index', 'match' => 'debts.*', 'label' => 'Debts', 'icon' => 'landmark'],
+                                ... (config('features.debt_tracking') ? [['route' => 'debts.index', 'match' => 'debts.*', 'label' => 'Debts', 'icon' => 'landmark']] : []),
                                 ['route' => 'goals.index', 'match' => 'goals.*', 'label' => 'Savings goals', 'icon' => 'target'],
                                 ['route' => 'net-worth.index', 'match' => 'net-worth.*', 'label' => 'Net worth', 'icon' => 'wallet'],
                             ];

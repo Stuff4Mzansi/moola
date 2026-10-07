@@ -9,7 +9,11 @@ class DashboardLayout
     /** @return array<string, string> */
     public function widgets(User $user): array
     {
-        $widgets = ['budget-trends' => 'Budget trends', 'category-trends' => 'Category spending trends', 'budgets' => 'Budgets at a glance', 'debts' => 'Debt progress', 'goals' => 'Savings goals', 'net-worth' => 'Net worth and liquidity', 'subscriptions' => 'Subscription overview'];
+        $widgets = ['budget-trends' => 'Budget trends', 'category-trends' => 'Category spending trends', 'budgets' => 'Budgets at a glance'];
+        if (config('features.debt_tracking')) {
+            $widgets['debts'] = 'Debt progress';
+        }
+        $widgets += ['goals' => 'Savings goals', 'net-worth' => 'Net worth and liquidity', 'subscriptions' => 'Subscription overview'];
         if ($user->isAdmin()) {
             $widgets['household'] = 'Household management';
         }

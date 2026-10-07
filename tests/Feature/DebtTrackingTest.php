@@ -16,6 +16,7 @@ use Illuminate\Support\Str;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    config(['features.debt_tracking' => true]);
     $this->travelTo(CarbonImmutable::parse('2026-10-04 12:00:00'));
     User::factory()->superAdmin()->create();
     $this->owner = User::factory()->create();

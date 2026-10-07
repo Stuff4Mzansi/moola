@@ -17,6 +17,7 @@ use App\Http\Controllers\SavingsGoalController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Middleware\EnsureAdministratorExists;
+use App\Http\Middleware\EnsureDebtTrackingEnabled;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(EnsureAdministratorExists::class)->group(function (): void {
@@ -51,11 +52,13 @@ Route::middleware(EnsureAdministratorExists::class)->group(function (): void {
         Route::post('/budgets/{budget}/notifications/preferences', [NotificationController::class, 'preferences'])->name('notifications.preferences');
         Route::post('/logout', [SessionController::class, 'destroy'])->name('logout');
         Route::resource('subscriptions', SubscriptionController::class);
-        Route::resource('debts', DebtController::class)->only(['index', 'store', 'update', 'destroy']);
-        Route::get('/debts/{debt}/interest', [DebtController::class, 'interest'])->name('debts.interest');
-        Route::post('/debts/{debt}/payments', [DebtController::class, 'payment'])->name('debts.payments.store');
-        Route::delete('/debts/{debt}/payments/{payment}', [DebtController::class, 'removePayment'])->name('debts.payments.destroy');
-        Route::post('/debts/{debt}/payments/{payment}/restore', [DebtController::class, 'restorePayment'])->withTrashed()->name('debts.payments.restore');
+        Route::middleware(EnsureDebtTrackingEnabled::class)->group(function (): void {
+            Route::resource('debts', DebtController::class)->only(['index', 'store', 'update', 'destroy']);
+            Route::get('/debts/{debt}/interest', [DebtController::class, 'interest'])->name('debts.interest');
+            Route::post('/debts/{debt}/payments', [DebtController::class, 'payment'])->name('debts.payments.store');
+            Route::delete('/debts/{debt}/payments/{payment}', [DebtController::class, 'removePayment'])->name('debts.payments.destroy');
+            Route::post('/debts/{debt}/payments/{payment}/restore', [DebtController::class, 'restorePayment'])->withTrashed()->name('debts.payments.restore');
+        });
         Route::resource('goals', SavingsGoalController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::post('/goals/{goal}/contributions', [SavingsGoalController::class, 'contribute'])->name('goals.contributions.store');
         Route::delete('/goals/{goal}/contributions/{contribution}', [SavingsGoalController::class, 'remove'])->name('goals.contributions.destroy');
@@ -72,6 +75,13 @@ Route::middleware(EnsureAdministratorExists::class)->group(function (): void {
         Route::post('/net-worth/assets/{asset}/values', [NetWorthController::class, 'value'])->name('net-worth.values.store');
         Route::delete('/net-worth/assets/{asset}/values/{valuation}', [NetWorthController::class, 'removeValue'])->name('net-worth.values.destroy');
         Route::post('/net-worth/assets/{asset}/values/{valuation}/restore', [NetWorthController::class, 'restoreValue'])->withTrashed()->name('net-worth.values.restore');
+        Route::post('/net-worth/liabilities', [NetWorthController::class, 'storeLiability'])->name('net-worth.liabilities.store');
+        Route::put('/net-worth/liabilities/{liability}', [NetWorthController::class, 'updateLiability'])->name('net-worth.liabilities.update');
+        Route::delete('/net-worth/liabilities/{liability}', [NetWorthController::class, 'destroyLiability'])->name('net-worth.liabilities.destroy');
+        Route::post('/net-worth/liabilities/{liability}/restore', [NetWorthController::class, 'restoreLiability'])->withTrashed()->name('net-worth.liabilities.restore');
+        Route::post('/net-worth/liabilities/{liability}/values', [NetWorthController::class, 'valueLiability'])->name('net-worth.liabilities.values.store');
+        Route::delete('/net-worth/liabilities/{liability}/values/{valuation}', [NetWorthController::class, 'removeValueLiability'])->name('net-worth.liabilities.values.destroy');
+        Route::post('/net-worth/liabilities/{liability}/values/{valuation}/restore', [NetWorthController::class, 'restoreValueLiability'])->withTrashed()->name('net-worth.liabilities.values.restore');
         Route::post('/net-worth/snapshots', [NetWorthController::class, 'snapshot'])->name('net-worth.snapshots.store');
         Route::delete('/net-worth/snapshots/{snapshot}', [NetWorthController::class, 'removeSnapshot'])->name('net-worth.snapshots.destroy');
         Route::post('/net-worth/snapshots/{snapshot}/restore', [NetWorthController::class, 'restoreSnapshot'])->withTrashed()->name('net-worth.snapshots.restore');

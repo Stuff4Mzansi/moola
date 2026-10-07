@@ -32,6 +32,7 @@ beforeEach(function () {
 });
 
 test('calendar combines remaining income subscriptions recurring bills and debt minima without writes or duplicate linked debt events', function () {
+    config(['features.debt_tracking' => true]);
     Subscription::factory()->create(['user_id' => $this->owner->id, 'name' => 'Streaming', 'next_billing_date' => '2026-10-10', 'amount_cents' => 10000]);
     BudgetRecurringExpense::factory()->create(['budget_id' => $this->budget->id, 'name' => 'Electricity', 'start_date' => '2026-10-11', 'amount_cents' => 30000]);
     $debt = Debt::factory()->create(['user_id' => $this->owner->id, 'name' => 'Car loan', 'due_anchor' => '2026-10-12', 'minimum_payment_cents' => 20000]);
@@ -83,6 +84,7 @@ test('calendar includes every weekly occurrence and inclusive month end while fi
 });
 
 test('calendar shows shared budget income and schedules without exposing unrelated private subscriptions or debts', function () {
+    config(['features.debt_tracking' => true]);
     $other = User::factory()->create();
     $shared = Budget::factory()->household()->create(['user_id' => $other->id, 'name' => 'Shared family']);
     $shared->members()->attach($this->owner, ['role' => 'viewer']);
@@ -109,6 +111,7 @@ test('shared subscription forecasts count once across visible overlapping budget
 });
 
 test('shared debt schedules expose only the budget estimate and do not expose private payment adjustments', function () {
+    config(['features.debt_tracking' => true]);
     $other = User::factory()->create();
     $shared = Budget::factory()->household()->create(['user_id' => $other->id]);
     $shared->members()->attach($this->owner, ['role' => 'viewer']);

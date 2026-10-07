@@ -22,7 +22,7 @@ class PlanningScenarioRequest extends FormRequest
             $this->selectedScenario = PlanningScenario::query()->where('user_id', $this->user()->id)->findOrFail($this->input('scenario'));
         }
         $this->loadingSavedInputs = $this->isMethod('GET') && $this->selectedScenario !== null && ! $this->has('inputs');
-        $kind = $this->selectedScenario?->kind ?? $this->input('kind', 'debt');
+        $kind = $this->selectedScenario?->kind ?? $this->input('kind', array_key_first(app(PlanningScenarios::class)->kinds()));
         $defaults = app(PlanningScenarios::class)->defaults(is_string($kind) ? $kind : 'debt');
         $inputs = $this->input('inputs', $this->selectedScenario?->inputs ?? []);
         if (is_array($inputs)) {

@@ -11,7 +11,13 @@ class PlanningScenarios
     /** @return array<string, string> */
     public function kinds(): array
     {
-        return ['debt' => 'Debt payoff', 'subscriptions' => 'Subscription savings', 'liquidity' => 'Cash flow'];
+        $kinds = ['subscriptions' => 'Subscription savings', 'liquidity' => 'Cash flow'];
+
+        if (config('features.debt_tracking')) {
+            $kinds = ['debt' => 'Debt payoff', ...$kinds];
+        }
+
+        return $kinds;
     }
 
     /** @return array<string, mixed> */

@@ -45,11 +45,13 @@ function worthHarness(reopen = null) {
     const assetForm = form(['asset_id', '_method', 'name', 'kind', 'institution', 'notes', 'amount', 'date', 'liquidity', 'access_days', 'available_date', 'value_uncertain']);
     assetForm.fields.get('value_uncertain').type = 'checkbox';
     const valueForm = form(['asset_id', 'valuation_id', 'amount', 'date', 'notes']);
+    const liabilityForm = form(['liability_id', '_method', 'name', 'kind', 'institution', 'notes', 'amount', 'date']);
+    const liabilityValueForm = form(['liability_id', 'valuation_id', 'amount', 'date', 'notes']);
     const snapshotForm = form(['date']);
     const dialog = (form) => ({ open: false, querySelector() { return form; }, showModal() { this.open = true; } });
-    const assetDialog = dialog(assetForm), valueDialog = dialog(valueForm), snapshotDialog = dialog(snapshotForm);
+    const assetDialog = dialog(assetForm), valueDialog = dialog(valueForm), liabilityDialog = dialog(liabilityForm), liabilityValueDialog = dialog(liabilityValueForm), snapshotDialog = dialog(snapshotForm);
     const page = { addEventListener(name, handler) { handlers[name] = handler; }, querySelector(selector) { return selector === '[data-worth-reopen]' ? { textContent: JSON.stringify(reopen) } : null; } };
-    const document = { addEventListener(name, handler) { handlers[name] = handler; }, querySelectorAll() { return []; }, querySelector() { return page; }, getElementById(id) { return id === 'asset-edit' ? assetDialog : id === 'asset-value' ? valueDialog : snapshotDialog; } };
+    const document = { addEventListener(name, handler) { handlers[name] = handler; }, querySelectorAll() { return []; }, querySelector() { return page; }, getElementById(id) { if (id === 'asset-edit') return assetDialog; if (id === 'asset-value') return valueDialog; if (id === 'liability-edit') return liabilityDialog; if (id === 'liability-value') return liabilityValueDialog; return snapshotDialog; } };
     const source = readFileSync(new URL('../resources/js/net-worth.js', import.meta.url), 'utf8').replaceAll('export function', 'function');
     vm.runInNewContext(source, { document });
     handlers.DOMContentLoaded();
@@ -57,7 +59,7 @@ function worthHarness(reopen = null) {
         const button = { dataset: { [attribute]: data ? JSON.stringify(data) : '' }, hasAttribute(name) { return name === 'data-' + attribute.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase()); } };
         handlers.click({ target: { closest() { return button; } } });
     };
-    return { click, assetForm, valueForm, snapshotForm, assetDialog, valueDialog, snapshotDialog };
+    return { click, assetForm, valueForm, liabilityForm, liabilityValueForm, snapshotForm, assetDialog, valueDialog, liabilityDialog, liabilityValueDialog, snapshotDialog };
 }
 
 test('asset metadata edits hide initial values and a new asset resets those fields', () => {
@@ -80,6 +82,20 @@ test('valuation edits retain their id and recording a new value clears edit stat
     click('assetValue', { action: '/net-worth/assets/1/values', amount: '200', date: '2026-10-04' });
     assert.equal(valueForm.fields.get('valuation_id').value, '');
     assert.equal(valueForm.fields.get('amount').value, '200');
+});
+
+test('liability editing opens the liability dialogs and retains field state', () => {
+    const { click, liabilityForm, liabilityValueForm } = worthHarness();
+    click('liabilityEdit', { action: '/net-worth/liabilities/1', liability_id: 1, name: 'Credit card', kind: 'credit', amount: '2500', date: '2026-09-01' });
+    assert.equal(liabilityForm.fields.get('_method').value, 'PUT');
+    assert.equal(liabilityForm.fields.get('amount').disabled, true);
+    assert.equal(liabilityForm.fields.get('name').value, 'Credit card');
+    click('liabilityNew');
+    assert.equal(liabilityForm.fields.get('_method').value, 'POST');
+    assert.equal(liabilityForm.fields.get('amount').disabled, false);
+    click('liabilityValue', { action: '/net-worth/liabilities/1/values', valuation_id: 9, amount: '2750', date: '2026-10-02' });
+    assert.equal(liabilityValueForm.fields.get('valuation_id').value, 9);
+    assert.equal(liabilityValueForm.fields.get('amount').value, '2750');
 });
 
 test('validation recovery opens asset value and snapshot dialogs with retained input', () => {

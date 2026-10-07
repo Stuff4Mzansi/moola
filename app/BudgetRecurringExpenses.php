@@ -15,7 +15,7 @@ class BudgetRecurringExpenses
     /** @return array{amount_cents: int, history_months: int, history_payments: int} */
     public function estimate(BudgetRecurringExpense $expense, CarbonImmutable $date): array
     {
-        if ($expense->debt_id !== null) {
+        if (config('features.debt_tracking') && $expense->debt_id !== null) {
             return ['amount_cents' => $expense->amount_cents, 'history_months' => 0, 'history_payments' => 0];
         }
         $until = $date->startOfMonth()->min(CarbonImmutable::today()->startOfMonth());

@@ -17,7 +17,8 @@ class PaymentCalendarController extends Controller
      */
     public function __invoke(Request $request, PaymentCalendar $calendar): View
     {
-        $request->validate(['month' => ['nullable', 'date_format:Y-m'], 'type' => ['nullable', 'string', 'in:all,subscription,recurring,debt,income']]);
+        $types = config('features.debt_tracking') ? 'all,subscription,recurring,debt,income' : 'all,subscription,recurring,income';
+        $request->validate(['month' => ['nullable', 'date_format:Y-m'], 'type' => ['nullable', 'string', 'in:'.$types]]);
         $today = CarbonImmutable::today();
         $month = $request->filled('month') ? CarbonImmutable::createFromFormat('!Y-m', $request->string('month')->toString()) : $today->startOfMonth();
         if ($month->lt($today->startOfMonth()) || $month->gt($today->startOfMonth()->addMonths(11))) {

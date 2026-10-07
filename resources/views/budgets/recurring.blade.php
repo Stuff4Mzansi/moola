@@ -86,7 +86,7 @@
                                 <td class="whitespace-nowrap text-xs">From {{ $expense->start_date->format('d M Y') }}<p class="mt-0.5 opacity-65">{{ $expense->end_date ? 'To '.$expense->end_date->format('d M Y') : 'No end date' }}</p></td>
                                 <td><span class="badge badge-sm badge-ghost">{{ $expense->is_active ? 'Active' : 'Paused' }}</span></td>
                                 <td>
-                                    @if($expense->debt_id !== null)
+                                    @if($expense->debt_id !== null && config('features.debt_tracking'))
                                         <p class="text-xs opacity-65">Debt-linked schedule.</p>
                                         @if($budget->user_id === auth()->id())<a class="link link-primary text-xs" href="{{ route('debts.index') }}">Manage in Debts</a>@endif
                                     @elseif($canEdit)

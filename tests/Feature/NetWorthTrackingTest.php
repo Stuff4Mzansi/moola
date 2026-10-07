@@ -4,6 +4,7 @@ use App\Models\Asset;
 use App\Models\AssetValuation;
 use App\Models\Debt;
 use App\Models\DebtPayment;
+use App\Models\Liability;
 use App\Models\NetWorthSnapshot;
 use App\Models\SavingsGoal;
 use App\Models\User;
@@ -44,6 +45,27 @@ test('assets can be added edited and valued from one page with correct monetary 
     }
 });
 
+test('manual liabilities use liability types and reduce net worth without debt payments', function () {
+    $payload = ['name' => 'Credit card', 'kind' => 'credit_card', 'institution' => 'My bank', 'amount' => '500', 'date' => '2026-10-04', 'form_kind' => 'liability'];
+
+    $this->post(route('net-worth.liabilities.store'), $payload)->assertRedirect()->assertSessionHasNoErrors();
+
+    $liability = Liability::query()->where('name', 'Credit card')->sole();
+    expect($liability->kind)->toBe('credit_card')
+        ->and($liability->valuations()->sole()->amount_cents)->toBe(50000)
+        ->and(app(NetWorthWorkspace::class)->build($this->owner)['netWorth'])->toBe(150000);
+
+    $this->postJson(route('net-worth.liabilities.store'), [...$payload, 'kind' => 'bank'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('kind');
+
+    $this->get(route('net-worth.index'))
+        ->assertOk()
+        ->assertSee('Credit card')
+        ->assertSee('Mortgage')
+        ->assertSee('Other liability');
+});
+
 test('current values use the newest date and same day updates do not duplicate balances', function () {
     $this->post(route('net-worth.values.store', $this->asset), assetValueData())->assertRedirect();
     $this->post(route('net-worth.values.store', $this->asset), assetValueData(['amount' => '3100']))->assertRedirect()->assertSessionHasNoErrors();
@@ -55,6 +77,7 @@ test('current values use the newest date and same day updates do not duplicate b
 });
 
 test('net worth includes debt principal and never adds savings goals as extra assets', function () {
+    config(['features.debt_tracking' => true]);
     $debt = Debt::factory()->create(['user_id' => $this->owner->id, 'opening_balance_cents' => 100000, 'balance_date' => '2026-10-01']);
     DebtPayment::factory()->create(['debt_id' => $debt->id, 'amount_cents' => 10000, 'interest_cents' => 1000, 'date' => '2026-10-03']);
     SavingsGoal::factory()->create(['user_id' => $this->owner->id, 'opening_cents' => 999999]);
@@ -65,6 +88,7 @@ test('net worth includes debt principal and never adds savings goals as extra as
 });
 
 test('negative net worth zero asset balances and stale values have actionable summaries', function () {
+    config(['features.debt_tracking' => true]);
     $this->value->update(['amount_cents' => 0, 'date' => '2026-08-01']);
     Debt::factory()->create(['user_id' => $this->owner->id, 'opening_balance_cents' => 50000, 'balance_date' => '2026-10-01']);
     $data = app(NetWorthWorkspace::class)->build($this->owner);
@@ -85,6 +109,7 @@ test('assets valuations snapshots and dashboard totals remain private for every 
 })->with([UserRole::Member, UserRole::Admin, UserRole::SuperAdmin]);
 
 test('backdated snapshots use asset and debt records through that date and remain immutable', function () {
+    config(['features.debt_tracking' => true]);
     $this->post(route('net-worth.values.store', $this->asset), assetValueData())->assertRedirect();
     $debt = Debt::factory()->create(['user_id' => $this->owner->id, 'name' => 'Loan', 'opening_balance_cents' => 100000, 'balance_date' => '2026-10-01']);
     DebtPayment::factory()->create(['debt_id' => $debt->id, 'amount_cents' => 50000, 'interest_cents' => 1000, 'date' => '2026-10-04']);
@@ -166,6 +191,7 @@ test('restore endpoints cannot expose another users removed financial records', 
 });
 
 test('recorded principal payments reversals are reflected live while saved snapshots stay unchanged', function () {
+    config(['features.debt_tracking' => true]);
     $debt = Debt::factory()->create(['user_id' => $this->owner->id, 'opening_balance_cents' => 100000, 'balance_date' => '2026-10-01']);
     $payment = DebtPayment::factory()->create(['debt_id' => $debt->id, 'amount_cents' => 10000, 'interest_cents' => 1000, 'date' => '2026-10-03']);
     $this->post(route('net-worth.snapshots.store'), ['date' => '2026-10-04'])->assertRedirect();

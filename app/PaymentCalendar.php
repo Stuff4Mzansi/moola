@@ -54,10 +54,12 @@ class PaymentCalendar
             }
         }
         $expenses = BudgetRecurringExpense::query()->whereIn('budget_id', $budgets->keys())->where('is_active', true)->get();
-        $debts = Debt::query()->where(fn (Builder $query): Builder => $query->where('user_id', $user->id)->orWhereIn('id', $expenses->pluck('debt_id')->filter()))->with(['payments' => fn (HasMany $payments): HasMany => $payments->whereDate('date', '<=', $today)])->get()->keyBy('id');
+        $debts = config('features.debt_tracking')
+            ? Debt::query()->where(fn (Builder $query): Builder => $query->where('user_id', $user->id)->orWhereIn('id', $expenses->pluck('debt_id')->filter()))->with(['payments' => fn (HasMany $payments): HasMany => $payments->whereDate('date', '<=', $today)])->get()->keyBy('id')
+            : collect();
         foreach ($expenses as $expense) {
             $debt = $expense->debt_id === null ? null : $debts->get($expense->debt_id);
-            if ($expense->debt_id !== null && ($debt === null || $debt->user_id === $user->id || $this->balance($debt) === 0)) {
+            if (config('features.debt_tracking') && $expense->debt_id !== null && ($debt === null || $debt->user_id === $user->id || $this->balance($debt) === 0)) {
                 continue;
             }
             $budget = $budgets->get($expense->budget_id);

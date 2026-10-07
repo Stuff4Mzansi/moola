@@ -98,7 +98,7 @@ class LiquidityAnalytics
         }
         $charges = BudgetRecurringCharge::query()->whereIn('budget_period_id', $selectedPeriods)->whereDate('scheduled_date', '>=', $today->subDays(90))->whereDate('scheduled_date', '<=', $until)->with('transaction')->orderBy('id')->get();
         $paidRecurring = $charges->filter(fn (BudgetRecurringCharge $charge): bool => $charge->transaction !== null)->keyBy(fn (BudgetRecurringCharge $charge): string => $charge->budget_recurring_expense_id.'|'.$charge->scheduled_date->toDateString());
-        foreach ($charges->where('is_current', true)->whereNull('debt_id') as $charge) {
+        foreach ($charges->where('is_current', true)->filter(fn (BudgetRecurringCharge $charge): bool => ! config('features.debt_tracking') || $charge->debt_id === null) as $charge) {
             $key = $charge->budget_recurring_expense_id.'|'.$charge->scheduled_date->toDateString();
             if ($paidRecurring->has($key)) {
                 continue;
@@ -110,7 +110,7 @@ class LiquidityAnalytics
             }
             $events['recurring:'.$key] = $this->event($charge->scheduled_date, $charge->name, $charge->amount_cents, 'expense', 'recurring', route('budgets.index', ['period' => $charge->budget_period_id, 'tab' => 'recurring']));
         }
-        foreach (BudgetRecurringExpense::query()->whereIn('budget_id', $budgetIds)->whereNull('debt_id')->where('is_active', true)->get() as $expense) {
+        foreach (BudgetRecurringExpense::query()->whereIn('budget_id', $budgetIds)->when(config('features.debt_tracking'), fn (Builder $query): Builder => $query->whereNull('debt_id'))->where('is_active', true)->get() as $expense) {
             $end = $expense->end_date === null ? $until : $until->min($expense->end_date);
             $estimate = app(BudgetRecurringExpenses::class)->estimate($expense, $today)['amount_cents'];
             foreach ((new RecurringSchedule($expense->billing_frequency, $expense->start_date))->between($today, $end) as $date) {

@@ -3,7 +3,11 @@
 @section('content')
 @php
     $money = fn (int $cents): string => $currencyPrefix.number_format($cents / 100, 2);
-    $types = ['subscription' => ['label' => 'Subscription', 'class' => 'badge-info'], 'recurring' => ['label' => 'Recurring bill', 'class' => 'badge-primary'], 'debt' => ['label' => 'Debt minimum', 'class' => 'badge-warning'], 'income' => ['label' => 'Income', 'class' => 'badge-success']];
+    $types = ['subscription' => ['label' => 'Subscription', 'class' => 'badge-info'], 'recurring' => ['label' => 'Recurring bill', 'class' => 'badge-primary']];
+    if (config('features.debt_tracking')) {
+        $types['debt'] = ['label' => 'Debt minimum', 'class' => 'badge-warning'];
+    }
+    $types['income'] = ['label' => 'Income', 'class' => 'badge-success'];
     $calendarUrl = fn (\Carbon\CarbonImmutable $date): string => route('payment-calendar.index', ['month' => $date->format('Y-m'), 'type' => $type]);
 @endphp
 <div class="mx-auto max-w-7xl space-y-5">
@@ -23,7 +27,7 @@
             <div class="rounded-sm bg-warning/10 p-3"><p class="text-xs opacity-65">Scheduled outgoing</p><p class="mt-1 text-2xl font-semibold text-warning">{{ $money($outgoing) }}</p></div>
             <div class="rounded-sm bg-base-200/60 p-3"><p class="text-xs opacity-65">Upcoming events</p><p class="mt-1 text-2xl font-semibold">{{ $events->count() }}</p><p class="text-xs opacity-65">{{ $month->isSameMonth($today) ? 'From today to month end' : 'Across the selected month' }}</p></div>
         </div>
-        <p class="mt-3 text-xs opacity-65">Estimates in {{ $currencyCode }}, not confirmed payments or a cash balance. Recorded payments and received income are excluded. Your subscriptions and debts are combined with budgets you own or can view. Separate budgets can describe the same income or bills; check their scope before adding totals.</p>
+        <p class="mt-3 text-xs opacity-65">Estimates in {{ $currencyCode }}, not confirmed payments or a cash balance. Recorded payments and received income are excluded. Your subscriptions{{ config('features.debt_tracking') ? ' and debts' : '' }} are combined with budgets you own or can view. Separate budgets can describe the same income or bills; check their scope before adding totals.</p>
         @if($undatedIncome > 0 && in_array($type, ['all', 'income'], true))<div class="mt-3 rounded-sm bg-warning/10 p-3 text-xs"><p>{{ $undatedIncome }} outstanding income entries in this month's budget periods need an expected date before they can appear here. Set dates on each budget's Plan tab.</p></div>@endif
     </section>
     <section class="hidden overflow-x-auto rounded-sm border border-base-300 bg-base-100 sm:block" aria-label="Monthly payment calendar">

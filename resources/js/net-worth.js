@@ -49,7 +49,7 @@ function initializeWorthCharts() {
             const id = section.dataset.chartId;
             const svg = svgElement('svg', { viewBox: `0 0 ${width} ${height}`, width, height, class: 'block min-w-full', style: `height:${height}px`, role: 'img', 'aria-labelledby': `${id}-title ${id}-description` });
             svg.append(svgElement('title', { id: `${id}-title` }, 'Saved net worth snapshots over time'));
-            svg.append(svgElement('desc', { id: `${id}-description` }, points.map(({ snapshot }) => `${date(snapshot.date)}: net worth ${money(snapshot.netWorth)}, assets ${money(snapshot.assets)}, debt principal ${money(snapshot.debts)}`).join('. ')));
+            svg.append(svgElement('desc', { id: `${id}-description` }, points.map(({ snapshot }) => `${date(snapshot.date)}: net worth ${money(snapshot.netWorth)}, assets ${money(snapshot.assets)}, obligations ${money(snapshot.debts)}`).join('. ')));
             for (let tick = 0; tick <= 4; tick++) {
                 const value = minimum + (maximum - minimum) * tick / 4;
                 svg.append(svgElement('line', { x1: left, x2: right, y1: y(value), y2: y(value), stroke: 'currentColor', opacity: 0.1 }));
@@ -57,7 +57,7 @@ function initializeWorthCharts() {
             }
             svg.append(svgElement('text', { x: left - 8, y: top - 3, fill: 'currentColor', opacity: 0.6, 'font-size': 9, 'text-anchor': 'end' }, currencySymbol));
             svg.append(svgElement('line', { x1: left, x2: right, y1: y(0), y2: y(0), stroke: 'currentColor', opacity: 0.35, 'stroke-dasharray': '3 3' }));
-            const series = showBreakdown ? [['assets', 'Assets', 'success'], ['debts', 'Debts', 'error'], ['netWorth', 'Net worth', 'primary']] : [['netWorth', 'Net worth', 'primary']];
+            const series = showBreakdown ? [['assets', 'Assets', 'success'], ['debts', 'Obligations', 'error'], ['netWorth', 'Net worth', 'primary']] : [['netWorth', 'Net worth', 'primary']];
             series.forEach(([key, label, color]) => {
                 if (points.length > 1) svg.append(svgElement('polyline', { points: points.map((point) => `${point.x},${y(point.snapshot[key])}`).join(' '), fill: 'none', stroke: `var(--color-${color})`, 'stroke-width': key === 'netWorth' ? 2.5 : 1.5, ...(key === 'debts' ? { 'stroke-dasharray': '4 3' } : {}) }));
                 points.forEach((point) => {
@@ -69,7 +69,7 @@ function initializeWorthCharts() {
             points.forEach((point) => svg.append(svgElement('text', { x: point.x, y: bottom + 20, fill: 'currentColor', opacity: 0.65, 'font-size': 10, 'text-anchor': 'middle' }, new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', timeZone: 'Africa/Johannesburg' }).format(new Date(`${point.snapshot.date}T12:00:00+02:00`)))));
             const legend = document.createElement('p');
             legend.className = 'mt-1 text-xs opacity-65';
-            legend.textContent = showBreakdown ? 'Net worth (solid) / Assets / Debts (dashed)' : 'Net worth / Dashed horizontal line = zero';
+            legend.textContent = showBreakdown ? 'Net worth (solid) / Assets / Obligations (dashed)' : 'Net worth / Dashed horizontal line = zero';
             canvas.replaceChildren(svg, legend);
         }
         range?.addEventListener('change', render);
@@ -83,6 +83,8 @@ function initializeWorthForms() {
     if (!page) return;
     const assetDialog = document.getElementById('asset-edit');
     const valueDialog = document.getElementById('asset-value');
+    const liabilityDialog = document.getElementById('liability-edit');
+    const liabilityValueDialog = document.getElementById('liability-value');
     const snapshotDialog = document.getElementById('worth-snapshot');
     const fill = (form, data) => Object.entries(data).forEach(([name, value]) => {
         const field = form.elements.namedItem(name);
@@ -114,12 +116,29 @@ function initializeWorthForms() {
         updateAccess();
         assetDialog.showModal();
     }
+    function openLiability(data = {}) {
+        const form = liabilityDialog.querySelector('form');
+        form.reset();
+        form.action = data.action || form.dataset.createUrl;
+        fill(form, data);
+        const method = data.method || (data.action ? 'PUT' : 'POST');
+        form.elements.namedItem('_method').value = method;
+        ['amount', 'date'].forEach((name) => { form.elements.namedItem(name).disabled = method === 'PUT'; });
+        liabilityDialog.showModal();
+    }
     function openValue(data) {
         const form = valueDialog.querySelector('form');
         form.reset();
         form.action = data.action;
         fill(form, data);
         valueDialog.showModal();
+    }
+    function openLiabilityValue(data) {
+        const form = liabilityValueDialog.querySelector('form');
+        form.reset();
+        form.action = data.action;
+        fill(form, data);
+        liabilityValueDialog.showModal();
     }
     function openSnapshot(data = {}) {
         const form = snapshotDialog.querySelector('form');
@@ -132,7 +151,9 @@ function initializeWorthForms() {
         if (!button) return;
         if (button.hasAttribute('data-worth-close')) button.closest('dialog').close();
         if (button.hasAttribute('data-asset-new') || button.hasAttribute('data-asset-edit')) openAsset(button.dataset.assetEdit ? JSON.parse(button.dataset.assetEdit) : {});
+        if (button.hasAttribute('data-liability-new') || button.hasAttribute('data-liability-edit')) openLiability(button.dataset.liabilityEdit ? JSON.parse(button.dataset.liabilityEdit) : {});
         if (button.hasAttribute('data-asset-value')) openValue(JSON.parse(button.dataset.assetValue));
+        if (button.hasAttribute('data-liability-value')) openLiabilityValue(JSON.parse(button.dataset.liabilityValue));
         if (button.hasAttribute('data-worth-snapshot')) openSnapshot();
     });
     const filter = page.querySelector('[data-asset-filter]');
@@ -149,7 +170,9 @@ function initializeWorthForms() {
     filterAssets();
     const reopen = JSON.parse(page.querySelector('[data-worth-reopen]')?.textContent || 'null');
     if (reopen?.kind === 'asset') openAsset(reopen.data);
+    if (reopen?.kind === 'liability') openLiability(reopen.data);
     if (reopen?.kind === 'value') openValue(reopen.data);
+    if (reopen?.kind === 'liability-value') openLiabilityValue(reopen.data);
     if (reopen?.kind === 'snapshot') openSnapshot(reopen.data);
     page.addEventListener('submit', (event) => {
         const form = event.target;
@@ -159,7 +182,6 @@ function initializeWorthForms() {
         form.querySelectorAll('button[type=submit]').forEach((button) => { button.disabled = true; });
     });
 }
-
 if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', () => {
     initializeWorthCharts();
     initializeWorthForms();
