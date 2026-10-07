@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
 
 class SavingsWorkspace
 {
-    /** @return array{rows: Collection, saved: int, target: int, monthly: int, completed: int, behind: int, contributions: Collection, trends: Collection} */
+    /** @return array{rows: Collection, saved: int, target: int, monthly: int, completed: int, behind: int, forecast: Collection, forecastMonths: int, contributions: Collection, trends: Collection} */
     public function build(User $user): array
     {
         $today = CarbonImmutable::today();
@@ -33,8 +33,27 @@ class SavingsWorkspace
                 $expected += (int) ceil(max(0, $goal->target_cents - $goal->opening_cents) * $elapsed / $totalDays);
             }
             $status = $remaining === 0 ? 'Complete' : ($goal->target_date?->lt($today) ? 'Past target date' : ($goal->target_date !== null ? ($saved >= $expected ? 'On track' : 'Needs a boost') : 'Building savings'));
+            $currentMonthForecast = min($remaining, max(0, $monthly - $thisMonth));
+            $forecastMonths = $remaining === 0 ? 0 : ($monthly > 0 ? 1 + (int) ceil(max(0, $remaining - $currentMonthForecast) / $monthly) : null);
+            $forecastDate = $remaining === 0
+                ? $today
+                : ($forecastMonths === null ? null : $today->startOfMonth()->addMonths($forecastMonths - 1)->endOfMonth());
 
-            return ['goal' => $goal, 'saved' => $saved, 'remaining' => $remaining, 'monthly' => $remaining > 0 ? $monthly : 0, 'needed' => $needed, 'thisMonth' => $thisMonth, 'monthRemaining' => min($remaining, max(0, $monthly - $thisMonth)), 'shortfall' => max(0, $expected - $saved), 'progress' => min(100, (int) floor($saved * 100 / $goal->target_cents)), 'status' => $status];
+            return ['goal' => $goal, 'saved' => $saved, 'remaining' => $remaining, 'monthly' => $remaining > 0 ? $monthly : 0, 'needed' => $needed, 'thisMonth' => $thisMonth, 'monthRemaining' => $currentMonthForecast, 'shortfall' => max(0, $expected - $saved), 'progress' => min(100, (int) floor($saved * 100 / $goal->target_cents)), 'status' => $status, 'forecastMonths' => $forecastMonths, 'forecastDate' => $forecastDate];
+        });
+        $forecastMonths = max(1, (int) $rows->max('forecastMonths'));
+        $forecast = collect(range(0, $forecastMonths))->map(function (int $month) use ($rows, $today): array {
+            $saved = $rows->sum(function (array $row) use ($month): int {
+                $goal = $row['goal'];
+                $projected = $row['saved'];
+                if ($month > 0 && $row['remaining'] > 0) {
+                    $projected += $row['monthRemaining'] + max(0, $month - 1) * $row['monthly'];
+                }
+
+                return min($goal->target_cents, $projected);
+            });
+
+            return ['date' => $month === 0 ? $today->toDateString() : $today->startOfMonth()->addMonths($month - 1)->endOfMonth()->toDateString(), 'saved' => $saved];
         });
         $contributions = $goals->flatMap(fn (SavingsGoal $goal): Collection => $goal->contributions->map(fn (SavingsContribution $entry): array => ['entry' => $entry, 'goal' => $goal]))->sortByDesc(fn (array $row): string => $row['entry']->date->toDateString().'|'.str_pad((string) $row['entry']->id, 20, '0', STR_PAD_LEFT))->values();
         $trends = collect(range(5, 0))->map(function (int $offset) use ($today, $contributions): array {
@@ -43,6 +62,6 @@ class SavingsWorkspace
             return ['label' => $month->format('M'), 'date' => $month->format('M Y'), 'amount' => $contributions->filter(fn (array $row): bool => $row['entry']->date->format('Y-m') === $month->format('Y-m'))->sum(fn (array $row): int => $row['entry']->amount_cents)];
         });
 
-        return ['rows' => $rows, 'saved' => $rows->sum('saved'), 'target' => $rows->sum(fn (array $row): int => $row['goal']->target_cents), 'monthly' => $rows->sum('monthly'), 'completed' => $rows->where('status', 'Complete')->count(), 'behind' => $rows->whereIn('status', ['Needs a boost', 'Past target date'])->count(), 'contributions' => $contributions, 'trends' => $trends];
+        return ['rows' => $rows, 'saved' => $rows->sum('saved'), 'target' => $rows->sum(fn (array $row): int => $row['goal']->target_cents), 'monthly' => $rows->sum('monthly'), 'completed' => $rows->where('status', 'Complete')->count(), 'behind' => $rows->whereIn('status', ['Needs a boost', 'Past target date'])->count(), 'forecast' => $forecast, 'forecastMonths' => $forecastMonths, 'contributions' => $contributions, 'trends' => $trends];
     }
 }

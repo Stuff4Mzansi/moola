@@ -30,6 +30,7 @@
                 <p class="mt-auto pt-2 text-[11px] opacity-60">Planned across active goals</p>
             </section>
         </div>
+        @include('goals.forecast')
         <div class="grid items-stretch gap-3 md:grid-cols-2">
             @forelse($rows as $row)
                 @php

@@ -62,7 +62,18 @@ test('goals can be managed on a private single page with monetary and date valid
 
 test('monthly planning progress and contribution history reflect recorded savings', function () {
     $row = app(SavingsWorkspace::class)->build($this->owner)['rows']->sole();
-    expect($row['monthly'])->toBe(30000)->and($row['needed'])->toBe(30000)->and($row['progress'])->toBe(10)->and($row['status'])->toBe('Needs a boost');
+    expect($row['monthly'])->toBe(30000)
+        ->and($row['needed'])->toBe(30000)
+        ->and($row['progress'])->toBe(10)
+        ->and($row['status'])->toBe('Needs a boost')
+        ->and($row['forecastMonths'])->toBe(3)
+        ->and($row['forecastDate']->toDateString())->toBe('2026-12-31');
+    $this->get(route('goals.index'))->assertOk()
+        ->assertSee('Projected savings progress')
+        ->assertSee('data-goal-forecast-line', false)
+        ->assertSee('data-goal-forecast-marker="'.$this->goal->id.'"', false)
+        ->assertSee('Est. 31 Dec 2026')
+        ->assertSee('2026-12-31', false);
     $data = savingsContributionData();
     $this->post(route('goals.contributions.store', $this->goal), $data)->assertRedirect();
     $this->post(route('goals.contributions.store', $this->goal), $data)->assertRedirect();
@@ -74,6 +85,41 @@ test('monthly planning progress and contribution history reflect recorded saving
     expect(app(SavingsWorkspace::class)->build($this->owner)['saved'])->toBe(30000);
     $this->putJson(route('goals.update', $this->goal), savingsDetails(['opening' => '200']))->assertUnprocessable();
     $this->get(route('goals.index', ['tab' => 'contributions']))->assertOk()->assertSee('R 200.00');
+});
+
+test('goal forecast stays honest when there is no monthly plan', function () {
+    $this->goal->update(['target_date' => null, 'monthly_cents' => 0]);
+
+    $workspace = app(SavingsWorkspace::class)->build($this->owner);
+    expect($workspace['rows']->sole()['forecastDate'])->toBeNull();
+
+    $this->get(route('goals.index'))->assertOk()
+        ->assertSee('Set a monthly plan to forecast')
+        ->assertSee('No projected completion date for My private holiday')
+        ->assertDontSee('data-goal-forecast-marker="'.$this->goal->id.'"', false);
+});
+
+test('goal forecast marks each goal at its own estimated completion date', function () {
+    $this->goal->update(['monthly_cents' => 30000]);
+    $secondGoal = SavingsGoal::factory()->create([
+        'user_id' => $this->owner->id,
+        'name' => 'Car deposit',
+        'target_cents' => 20000,
+        'opening_cents' => 0,
+        'target_date' => null,
+        'monthly_cents' => 10000,
+        'start_date' => '2026-10-01',
+    ]);
+
+    $workspace = app(SavingsWorkspace::class)->build($this->owner);
+    expect($workspace['rows']->firstWhere('goal.id', $this->goal->id)['forecastDate']->toDateString())->toBe('2026-12-31')
+        ->and($workspace['rows']->firstWhere('goal.id', $secondGoal->id)['forecastDate']->toDateString())->toBe('2026-11-30');
+
+    $this->get(route('goals.index'))->assertOk()
+        ->assertSee('data-goal-forecast-marker="'.$this->goal->id.'" data-goal-forecast-date="2026-12-31"', false)
+        ->assertSee('data-goal-forecast-marker="'.$secondGoal->id.'" data-goal-forecast-date="2026-11-30"', false)
+        ->assertSee('My private holiday')
+        ->assertSee('Car deposit');
 });
 
 test('contribution removal and undo update progress without duplicates', function () {
