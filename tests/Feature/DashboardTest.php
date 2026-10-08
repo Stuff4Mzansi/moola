@@ -23,6 +23,7 @@ test('dashboard shows subscription estimates chart and correctly ordered renewal
 
     $this->actingAs($this->user)->get(route('dashboard'))->assertOk()
         ->assertSee('Subscription overview')->assertSee('dashboard-category-chart-title', false)
+        ->assertSee('class="mx-auto w-28 sm:w-32"', false)
         ->assertSee('Largest recurring cost')->assertSee('Explore forecasts and potential savings')
         ->assertViewHas('activeCount', 3)->assertViewHas('monthlyCostCents', 15333)
         ->assertViewHas('analytics', fn (array $analytics): bool => $analytics['annualCostCents'] === 184000 && $analytics['next7DaysCostCents'] === 13000 && $analytics['next7DaysPaymentCount'] === 2)
@@ -43,7 +44,8 @@ test('dashboard and subscription page use identical analytics', function () {
     Subscription::factory()->count(3)->for($this->user)->create();
 
     $dashboard = $this->actingAs($this->user)->get(route('dashboard'))->assertOk();
-    $subscriptions = $this->get(route('subscriptions.index'))->assertOk()->assertSee('category-chart-title', false);
+    $subscriptions = $this->get(route('subscriptions.index'))->assertOk()->assertSee('category-chart-title', false)
+        ->assertSee('class="mx-auto w-32"', false);
 
     expect($dashboard->viewData('analytics'))->toBe($subscriptions->viewData('analytics'));
 });
