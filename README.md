@@ -94,3 +94,13 @@ COMPOSE_PROJECT_NAME=moola-smoke docker compose down --volumes
 ```
 
 For development, use Laravel Herd and the existing Composer/npm workflows. Docker configuration changes do not modify your local `.env` or existing database.
+
+### Development dashboard demo data
+
+To populate a local development database with dashboard and budget examples, run this from the repository root:
+
+```sh
+php artisan db:seed --class='Database\Seeders\DevelopmentDashboardSeeder' --no-interaction
+```
+
+The seeder is only allowed when `APP_ENV` is `local`, `development`, or `testing`; it refuses to run in production. It is not called by `DatabaseSeeder` or automatically during deployment. It adds or updates its named demo budgets and periods, so rerunning it does not duplicate them. It uses an existing super administrator as the owner, or creates `demo@example.test` with password `password` if none exists. Use that account only in a local development environment.
