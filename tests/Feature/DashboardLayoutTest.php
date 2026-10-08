@@ -16,7 +16,9 @@ beforeEach(function () {
 test('new accounts get the default dashboard and only authorized widgets', function () {
     $this->actingAs($this->user)->get(route('dashboard'))->assertOk()
         ->assertSee('Customize dashboard')->assertViewHas('dashboardLayout', $this->layout)
-        ->assertDontSee('data-layout-widget="household"', false);
+        ->assertDontSee('data-layout-widget="household"', false)
+        ->assertDontSee('data-layout-widget="category-trends"', false)
+        ->assertDontSee('Category spending trends');
 
     expect(collect($this->layout)->firstWhere('id', 'goal-forecast')['visible'])->toBeTrue()
         ->and(collect($this->layout)->firstWhere('id', 'budget-pace')['visible'])->toBeTrue()
@@ -73,6 +75,7 @@ test('saved layouts recover unknown duplicate and invalid entries and append new
     $this->user->dashboard_layout = [
         ['id' => 'subscriptions', 'visible' => false, 'width' => 'medium', 'height' => 'regular'],
         ['id' => 'subscriptions', 'visible' => true],
+        ['id' => 'category-trends', 'visible' => true, 'width' => 'wide', 'height' => 'auto'],
         ['id' => 'obsolete'],
         ['id' => 'budgets', 'visible' => 'no', 'width' => 'huge', 'height' => 'negative'],
         'invalid',

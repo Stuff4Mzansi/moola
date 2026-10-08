@@ -18,12 +18,12 @@
     }
     $tickInterval = max(1, (int) ceil($lastIndex / 5));
 @endphp
-<section class="rounded-sm border border-base-300 bg-base-100 p-3" aria-labelledby="dashboard-goal-forecast-title">
-    <div class="flex flex-wrap items-baseline justify-between gap-2"><div><h2 id="dashboard-goal-forecast-title" class="text-sm font-semibold">Savings goal forecast</h2><p class="text-[10px] opacity-65">Estimated progress if monthly plans continue</p></div><a class="link link-primary text-xs" href="{{ route('goals.index') }}">View goals</a></div>
+<section class="overflow-hidden rounded-sm border border-base-300 bg-base-100" aria-labelledby="dashboard-goal-forecast-title">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-base-300 px-3 py-2"><div><h2 id="dashboard-goal-forecast-title" class="flex items-center gap-1.5 text-sm font-semibold"><x-lucide-chart-no-axes-combined class="size-3.5 text-primary" aria-hidden="true" />Savings goal forecast</h2><p class="mt-0.5 text-[10px] opacity-60">Estimated progress if monthly plans continue.</p></div><a class="link link-primary text-[11px]" href="{{ route('goals.index') }}">View goals</a></div>
     @if($goalRows->isEmpty())
-        <p class="mt-3 text-xs opacity-65">Add a goal with a monthly plan to see its projected completion date.</p>
+        <p class="px-3 py-3 text-xs opacity-65">Add a goal with a monthly plan to see its projected completion date.</p>
     @else
-        <div class="mt-2 w-full overflow-x-auto" role="region" aria-label="Projected savings goal chart" tabindex="0">
+        <div class="w-full overflow-x-auto px-2 pt-2" role="region" aria-label="Projected savings goal chart" tabindex="0">
             <svg viewBox="0 0 {{ $chartWidth }} {{ $chartHeight }}" class="block min-w-[30rem] w-full" role="img" aria-labelledby="dashboard-goal-forecast-title dashboard-goal-forecast-description">
                 <title id="dashboard-goal-forecast-description">Projected combined savings from {{ $currencyPrefix }}{{ number_format($savingsOverview['saved'] / 100, 2) }} to {{ $currencyPrefix }}{{ number_format($goalForecast->last()['saved'] / 100, 2) }}. Markers show goal completion estimates.</title>
                 @foreach([0, 1, 2, 3] as $tick)
@@ -46,11 +46,11 @@
                 @endforeach
             </svg>
         </div>
-        <ul class="mt-1 max-h-24 divide-y divide-base-300/60 overflow-y-auto pr-1 text-[10px]" tabindex="0" aria-label="Goal completion forecast dates">
+        <ul class="mx-3 mb-2 max-h-24 divide-y divide-base-300/60 overflow-y-auto border-y border-base-300/60 pr-1 text-[10px]" tabindex="0" aria-label="Goal completion forecast dates">
             @foreach($goalRows as $index => $row)
                 <li class="flex items-center justify-between gap-2 py-1"><span class="flex min-w-0 items-center gap-1.5"><span class="size-2 shrink-0 rounded-full" style="background-color: {{ $row['forecastDate'] ? $colours[$index % count($colours)] : 'currentColor' }}" aria-hidden="true"></span><span class="break-words">{{ $row['goal']->name }}</span></span><span class="shrink-0 text-right tabular-nums">@if($row['forecastDate']){{ $row['forecastMonths'] === 0 ? 'Reached' : 'Est.' }} {{ $row['forecastDate']->format('d M Y') }}@else<span class="opacity-65">Set a monthly plan</span>@endif</span></li>
             @endforeach
         </ul>
-        <p class="mt-2 text-[10px] leading-snug opacity-60">Includes this month's remaining plan, then assumes plans continue; excludes interest and unrecorded contributions.</p>
+        <p class="border-t border-base-300 bg-base-200/40 px-3 py-1.5 text-[10px] leading-snug opacity-60">Includes this month's remaining plan, then assumes plans continue; excludes interest and unrecorded contributions.</p>
     @endif
 </section>

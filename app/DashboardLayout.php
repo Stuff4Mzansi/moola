@@ -9,7 +9,7 @@ class DashboardLayout
     /** @return array<string, string> */
     public function widgets(User $user): array
     {
-        $widgets = ['budget-trends' => 'Budget trends', 'category-trends' => 'Category spending trends', 'spending-mix' => 'Current-period spending mix', 'budgets' => 'Budgets at a glance', 'budget-pace' => 'Current-period spending pace'];
+        $widgets = ['budget-trends' => 'Budget trends', 'spending-mix' => 'Current-period spending mix', 'budgets' => 'Budgets at a glance', 'budget-pace' => 'Current-period spending pace'];
         if (config('features.debt_tracking')) {
             $widgets['debts'] = 'Debt progress';
         }

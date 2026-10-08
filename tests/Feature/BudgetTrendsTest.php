@@ -112,7 +112,7 @@ test('category trend history preserves allocations received income and actual sp
     $removed->delete();
     BudgetRecurringExpense::factory()->create(['budget_id' => $this->budget->id, 'category_name' => 'Transport', 'amount_cents' => 50000, 'start_date' => '2026-09-15']);
 
-    $response = $this->get(route('dashboard'))->assertOk()->assertSee('Category spending trends')->assertSee('Last 6 completed periods');
+    $response = $this->get(route('dashboard'))->assertOk()->assertDontSee('Category spending trends');
     $history = $response->viewData('budgetTrends')[0]['periods'][0];
     expect($history)->toMatchArray(['days' => 21, 'received' => 75000, 'complete' => true]);
     expect($history['categories'])->toBe([['key' => 'custom:Transport', 'name' => 'Transport', 'planned' => 12000, 'spent' => 15000]]);

@@ -10,12 +10,14 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
-.dashboard-widget-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+.dashboard-widget-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; align-items: stretch; }
 .dashboard-widget[hidden] { display: none; }
-.dashboard-widget-body { container-type: inline-size; }
-.dashboard-widget[data-height="compact"] .dashboard-widget-body { height: 20rem; overflow: auto; }
-.dashboard-widget[data-height="regular"] .dashboard-widget-body { height: 30rem; overflow: auto; }
-.dashboard-widget[data-height="tall"] .dashboard-widget-body { height: 40rem; overflow: auto; }
+.dashboard-widget { display: flex; min-height: 0; flex-direction: column; }
+.dashboard-widget-body { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; container-type: inline-size; }
+.dashboard-widget-body > * { flex: 1 0 auto; }
+.dashboard-widget[data-height="compact"] .dashboard-widget-body { min-height: 20rem; overflow: auto; }
+.dashboard-widget[data-height="regular"] .dashboard-widget-body { min-height: 30rem; overflow: auto; }
+.dashboard-widget[data-height="tall"] .dashboard-widget-body { min-height: 40rem; overflow: auto; }
 .dashboard-widget[data-dragging="true"] { opacity: 0.45; }
 .dashboard-widget[data-drop-target="true"] { outline: 2px dashed var(--color-primary); outline-offset: 4px; }
 

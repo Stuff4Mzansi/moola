@@ -1,6 +1,6 @@
-<section class="overflow-hidden rounded-sm border border-base-300 bg-base-100 shadow-sm" aria-labelledby="budget-trends-title" data-budget-trends>
-    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-base-300 bg-gradient-to-r from-primary/5 to-base-100 p-3 sm:px-4">
-        <div><h2 id="budget-trends-title" class="flex items-center gap-1.5 text-base font-semibold"><x-lucide-chart-no-axes-combined class="size-4 text-primary" /> Budget trends</h2><p class="mt-0.5 text-xs opacity-65">Compare plans and recorded amounts over time.</p></div>
+<section class="overflow-hidden rounded-sm border border-base-300 bg-base-100" aria-labelledby="budget-trends-title" data-budget-trends>
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-base-300 px-3 py-2">
+        <div><h2 id="budget-trends-title" class="flex items-center gap-1.5 text-sm font-semibold"><x-lucide-chart-no-axes-combined class="size-3.5 text-primary" aria-hidden="true" /> Budget trends</h2><p class="mt-0.5 text-[10px] opacity-60">Compare plans and recorded amounts over time.</p></div>
         @if(count($budgetTrends) > 0)
             <div class="flex flex-wrap items-center gap-2" data-trend-controls hidden>
                 <label class="block"><span class="sr-only">Budget</span><select class="select select-xs max-w-52" data-trend-budget>@foreach($budgetTrends as $trendBudget)<option value="{{ $trendBudget['id'] }}">{{ $trendBudget['name'] }} ({{ ucfirst($trendBudget['scope']) }})</option>@endforeach</select></label>
@@ -10,7 +10,7 @@
             </div>
         @endif
     </div>
-    <div class="p-3 sm:px-4">
+    <div class="p-2.5 sm:p-3">
         <div data-trend-content hidden>
             <div class="mb-2 grid grid-cols-3 divide-x divide-base-300 border-b border-base-300 pb-2" aria-live="polite">
                 <div class="min-w-0 px-2 first:pl-0"><p class="text-[11px] opacity-60" data-trend-reference-label>Budgeted</p><p class="mt-0.5 break-words text-sm font-semibold sm:text-base" data-trend-planned></p></div>
