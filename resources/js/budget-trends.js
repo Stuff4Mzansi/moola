@@ -5,20 +5,22 @@ export function selectTrendPeriods(periods, range) {
 
 export function summarizeTrendPeriods(periods, referenceKey = 'planned') {
     const completed = periods.filter((period) => period.complete);
-    const sum = (items, key) => items.reduce((total, period) => total + period[key], 0);
+    const sum = (items, key) => items.reduce((total, period) => total + (period[key] ?? 0), 0);
     const planned = sum(periods, referenceKey);
+    const budgeted = sum(periods, 'planned');
+    const received = sum(periods, 'received');
     const spent = sum(periods, 'spent');
     const completedDifference = sum(completed, referenceKey) - sum(completed, 'spent');
-    return { planned, spent, completed, completedDifference, difference: completed.length ? completedDifference : planned - spent, overCount: completed.filter((period) => period.spent > period[referenceKey]).length };
+    return { planned, budgeted, received, spent, completed, completedDifference, difference: completed.length ? completedDifference : planned - spent, overCount: completed.filter((period) => period.spent > period[referenceKey]).length };
 }
 
 export function trendGeometry(periods, viewportWidth = 680, referenceKey = 'planned') {
     const width = Math.max(680, viewportWidth, periods.length * 84 + 100);
-    const maximum = Math.max(100, ...periods.flatMap((period) => [period[referenceKey], period.spent])) * 1.15;
+    const maximum = Math.max(100, ...periods.flatMap((period) => [period.planned, period.received ?? 0, period.spent])) * 1.15;
     const left = 76, right = width - 24, top = 20, bottom = 136;
     const step = (right - left) / Math.max(1, periods.length);
     const y = (amount) => bottom - amount / maximum * (bottom - top);
-    return { width, maximum, left, right, top, bottom, step, y, points: periods.map((period, index) => ({ period, x: left + step * (index + 0.5), plannedY: y(period[referenceKey]), spentY: y(period.spent) })) };
+    return { width, maximum, left, right, top, bottom, step, y, points: periods.map((period, index) => ({ period, x: left + step * (index + 0.5), plannedY: y(period.planned), receivedY: y(period.received ?? 0), spentY: y(period.spent), over: period.spent > period[referenceKey] })) };
 }
 
 function initializeBudgetTrends() {
@@ -54,12 +56,29 @@ function initializeBudgetTrends() {
         return element;
     }
 
+    function trendPath(points, coordinate, smooth = false) {
+        if (!smooth) {
+            return points.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point[coordinate]}`).join(' ');
+        }
+
+        return points.slice(1).reduce((path, point, index) => {
+            const previous = points[index];
+            const beforePrevious = points[Math.max(0, index - 1)];
+            const afterNext = points[Math.min(points.length - 1, index + 2)];
+            const controlOneX = previous.x + (point.x - beforePrevious.x) / 6;
+            const controlOneY = previous[coordinate] + (point[coordinate] - beforePrevious[coordinate]) / 6;
+            const controlTwoX = point.x - (afterNext.x - previous.x) / 6;
+            const controlTwoY = point[coordinate] - (afterNext[coordinate] - previous[coordinate]) / 6;
+            return `${path} C ${controlOneX} ${controlOneY}, ${controlTwoX} ${controlTwoY}, ${point.x} ${point[coordinate]}`;
+        }, `M ${points[0].x} ${points[0][coordinate]}`);
+    }
+
     function referenceKey() {
         return comparison === 'income' ? 'received' : 'planned';
     }
 
-    function referenceLabel() {
-        return comparison === 'income' ? 'Income received' : 'Budgeted';
+    function comparisonLabel() {
+        return comparison === 'income' ? 'received income' : 'budget';
     }
 
     function status(period) {
@@ -74,8 +93,8 @@ function initializeBudgetTrends() {
         const geometry = trendGeometry(periods, find('chart').clientWidth || 680, key);
         const { width, maximum, left, right, top, bottom, step, y, points } = geometry;
         const svg = svgElement('svg', { viewBox: `0 0 ${width} 190`, width, height: 190, class: 'block max-w-none', style: `width: ${width}px; height: 190px`, role: 'img', 'aria-labelledby': 'budget-trend-svg-title budget-trend-svg-desc' });
-        svg.append(svgElement('title', { id: 'budget-trend-svg-title' }, `${budget.name}: ${referenceLabel().toLowerCase()} versus spent`));
-        svg.append(svgElement('desc', { id: 'budget-trend-svg-desc' }, `${mode === 'line' ? 'Line' : 'Bar'} chart, oldest to newest. ${periods.length} budget periods. Red spending marks exceed ${referenceLabel().toLowerCase()}. Open a point or bar to review its period. Exact amounts are in the table below.`));
+        svg.append(svgElement('title', { id: 'budget-trend-svg-title' }, `${budget.name}: budgeted, received income, and recorded spending`));
+        svg.append(svgElement('desc', { id: 'budget-trend-svg-desc' }, `${mode === 'line' ? 'Line' : 'Bar'} chart, oldest to newest. ${periods.length} budget periods. Red spending marks exceed the selected ${comparisonLabel()} comparison. Open a point or bar to review its period. Exact amounts are in the table below.`));
         for (let tick = 0; tick <= 4; tick++) {
             const value = maximum * tick / 4;
             const position = y(value);
@@ -85,24 +104,27 @@ function initializeBudgetTrends() {
         }
         svg.append(svgElement('text', { x: left - 12, y: top - 12, 'text-anchor': 'end', 'font-size': 10, class: 'fill-base-content', opacity: 0.6 }, currencySymbol));
         if (mode === 'line' && points.length > 1) {
-            svg.append(svgElement('path', { d: points.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.plannedY}`).join(' '), fill: 'none', class: 'stroke-primary', 'stroke-width': 2.5 }));
-            points.slice(1).forEach((point, index) => {
-                const previous = points[index];
-                svg.append(svgElement('line', { x1: previous.x, y1: previous.spentY, x2: point.x, y2: point.spentY, class: 'stroke-info', 'stroke-width': 2.5, 'stroke-dasharray': point.period.complete ? 'none' : '6 4' }));
-            });
+            for (const [coordinate, colour, dash] of [['plannedY', 'stroke-primary', '6 4'], ['receivedY', 'stroke-success', 'none'], ['spentY', 'stroke-orange-600', 'none']]) {
+                svg.append(svgElement('path', { d: trendPath(points, coordinate, coordinate === 'spentY'), fill: 'none', class: colour, 'stroke-width': 2.5, 'stroke-dasharray': dash }));
+            }
         }
         points.forEach((point) => {
-            const { period, x, plannedY, spentY } = point;
-            const description = `${period.label}, ${date(period.start)} to ${date(period.end)}. ${referenceLabel()} ${money(period[key])}, spent ${money(period.spent)}. ${status(period)}. Open budget.`;
+            const { period, x, plannedY, receivedY, spentY } = point;
+            const description = `${period.label}, ${date(period.start)} to ${date(period.end)}. Budgeted ${money(period.planned)}, received income ${money(period.received ?? 0)}, recorded spending ${money(period.spent)}. ${status(period)}. Open budget.`;
             const anchor = svgElement('a', { href: period.url, tabindex: 0, 'aria-label': description });
             anchor.append(svgElement('title', {}, description));
             if (mode === 'bar') {
-                const barWidth = Math.min(24, step * 0.24);
-                anchor.append(svgElement('rect', { x: x - barWidth - 3, y: plannedY, width: barWidth, height: Math.max(2, bottom - plannedY), rx: 4, class: 'fill-primary', opacity: 0.7 }));
-                anchor.append(svgElement('rect', { x: x + 3, y: spentY, width: barWidth, height: Math.max(2, bottom - spentY), rx: 4, class: period.spent > period[key] ? 'fill-error' : 'fill-info', opacity: period.complete ? 1 : 0.55 }));
+                const barWidth = Math.min(18, step * 0.18);
+                const bars = [
+                    { offset: -barWidth - 3, value: plannedY, colour: 'fill-primary', opacity: 0.75 },
+                    { offset: 0, value: receivedY, colour: 'fill-success', opacity: 0.75 },
+                    { offset: barWidth + 3, value: spentY, colour: point.over ? 'fill-error' : 'fill-orange-600', opacity: period.complete ? 1 : 0.55 },
+                ];
+                bars.forEach((bar) => anchor.append(svgElement('rect', { x: x + bar.offset - barWidth / 2, y: bar.value, width: barWidth, height: Math.max(2, bottom - bar.value), rx: 3, class: bar.colour, opacity: bar.opacity })));
             } else {
                 anchor.append(svgElement('circle', { cx: x, cy: plannedY, r: 4, class: 'fill-primary stroke-base-100', 'stroke-width': 2 }));
-                anchor.append(svgElement('circle', { cx: x, cy: spentY, r: 5, class: period.spent > period[key] ? 'fill-error stroke-base-100' : 'fill-info stroke-base-100', 'stroke-width': 2 }));
+                anchor.append(svgElement('polygon', { points: `${x},${receivedY - 5} ${x + 5},${receivedY} ${x},${receivedY + 5} ${x - 5},${receivedY}`, class: 'fill-success stroke-base-100', 'stroke-width': 1.5 }));
+                anchor.append(svgElement('circle', { cx: x, cy: spentY, r: 5, class: point.over ? 'fill-error stroke-base-100' : 'fill-orange-600 stroke-base-100', 'stroke-width': 2 }));
                 anchor.append(svgElement('circle', { cx: x, cy: spentY, r: 13, fill: 'transparent' }));
             }
             anchor.append(svgElement('text', { x, y: bottom + 16, 'text-anchor': 'middle', 'font-size': 11, class: 'fill-base-content', opacity: 0.75 }, shortDate(period.start)));
@@ -121,13 +143,11 @@ function initializeBudgetTrends() {
         if (!periods.length) return;
         const key = referenceKey();
         const summary = summarizeTrendPeriods(periods, key);
-        find('reference-label').textContent = referenceLabel();
-        find('reference-legend').textContent = referenceLabel();
         find('over-legend').textContent = comparison === 'income' ? 'Spending above income' : 'Over budget';
-        find('table-reference').textContent = referenceLabel();
-        find('difference-heading').textContent = comparison === 'income' ? 'Balance' : 'Difference';
-        find('caption').textContent = `${referenceLabel()} and recorded spending by budget period`;
-        find('planned').textContent = money(summary.planned);
+        find('table-comparison').textContent = comparison === 'income' ? 'Balance vs income' : 'Difference vs budget';
+        find('caption').textContent = 'Budgeted amounts, received income, and recorded spending by budget period';
+        find('budgeted').textContent = money(summary.budgeted);
+        find('received').textContent = money(summary.received);
         find('spent').textContent = money(summary.spent);
         find('variance-label').textContent = comparison === 'income'
             ? (summary.completed.length ? 'Received minus spending - completed periods' : 'Received minus spending so far')
@@ -135,7 +155,7 @@ function initializeBudgetTrends() {
         if (comparison === 'budget' && summary.completed.length && summary.difference === 0) find('variance-label').textContent = 'On budget - completed periods';
         find('variance').textContent = money(Math.abs(summary.difference));
         find('variance').classList.toggle('text-error', summary.difference < 0);
-        find('variance-detail').textContent = summary.completed.length ? `${summary.overCount} of ${summary.completed.length} completed periods spent above ${comparison === 'income' ? 'received income' : 'budget'}. Current periods excluded here.` : 'Recorded spending so far; this is not a final result.';
+        find('variance-detail').textContent = summary.completed.length ? `${summary.overCount} of ${summary.completed.length} completed periods spent above ${comparisonLabel()}. Current periods excluded here.` : 'Recorded spending so far; this is not a final result.';
         find('window').textContent = `${budget.name} | ${date(periods[0].start)} to ${date(periods.at(-1).end)} | ${periods.length} ${periods.length === 1 ? 'period' : 'periods'}`;
         renderChart(periods, budget);
         const rows = periods.map((period) => {
@@ -144,7 +164,7 @@ function initializeBudgetTrends() {
             const link = textElement('a', period.label, 'link link-primary font-medium');
             link.href = period.url;
             nameCell.append(link);
-            row.append(nameCell, textElement('td', `${date(period.start)} - ${date(period.end)}`, 'whitespace-nowrap'), textElement('td', money(period[key]), 'whitespace-nowrap'), textElement('td', money(period.spent), 'whitespace-nowrap'), textElement('td', status(period), period.spent > period[key] ? 'text-error' : ''));
+            row.append(nameCell, textElement('td', `${date(period.start)} - ${date(period.end)}`, 'whitespace-nowrap'), textElement('td', money(period.planned), 'whitespace-nowrap'), textElement('td', money(period.received ?? 0), 'whitespace-nowrap'), textElement('td', money(period.spent), 'whitespace-nowrap'), textElement('td', status(period), period.spent > period[key] ? 'text-error' : ''));
             return row;
         });
         find('table').replaceChildren(...rows);

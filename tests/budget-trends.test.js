@@ -23,7 +23,7 @@ test('completed variance excludes unfinished periods and still identifies oversp
     assert.equal(summary.difference, 3000);
 });
 
-test('income comparison calculates received-minus-spent and scales both series', () => {
+test('income comparison calculates received-minus-spent and scales all three series', () => {
     const periods = [
         { ...period(10000, 9000), received: 8000 },
         { ...period(12000, 15000), received: 15000 },
@@ -32,10 +32,12 @@ test('income comparison calculates received-minus-spent and scales both series',
     const geometry = trendGeometry(periods, 680, 'received');
 
     assert.equal(summary.planned, 23000);
+    assert.equal(summary.budgeted, 22000);
+    assert.equal(summary.received, 23000);
     assert.equal(summary.spent, 24000);
     assert.equal(summary.difference, -1000);
     assert.equal(summary.overCount, 1);
-    assert.ok(geometry.points.every((point) => Number.isFinite(point.plannedY) && Number.isFinite(point.spentY)));
+    assert.ok(geometry.points.every((point) => Number.isFinite(point.plannedY) && Number.isFinite(point.receivedY) && Number.isFinite(point.spentY)));
 });
 
 test('a current period shows remaining room or overspending so far without claiming a completed result', () => {
@@ -69,7 +71,7 @@ async function chartHarness(budgets) {
         replaceChildren(...children) { this.children = children; }
         addEventListener(name, handler) { this.handlers[name] = handler; }
     }
-    const names = ['data', 'budget', 'range', 'controls', 'content', 'empty', 'planned', 'spent', 'variance-label', 'variance', 'variance-detail', 'window', 'chart', 'table', 'insight', 'reference-label', 'reference-legend', 'over-legend', 'table-reference', 'difference-heading', 'caption'];
+    const names = ['data', 'budget', 'range', 'controls', 'content', 'empty', 'budgeted', 'received', 'spent', 'variance-label', 'variance', 'variance-detail', 'window', 'chart', 'table', 'insight', 'over-legend', 'table-comparison', 'caption'];
     const elements = new Map(names.map((name) => [`[data-trend-${name}]`, new Element()]));
     elements.get('[data-trend-data]').textContent = JSON.stringify(budgets);
     elements.get('[data-trend-range]').value = '6';
@@ -84,7 +86,7 @@ async function chartHarness(budgets) {
     return { elements, modes, comparisons };
 }
 
-test('budget trends can switch to received-income versus spending', async () => {
+test('budget trends always show budget, received income, and spending when comparison changes', async () => {
     const periods = [
         { id: 1, label: 'October', start: '2026-10-01', end: '2026-10-31', url: '/budgets?period=1', planned: 10000, spent: 9000, received: 8000, complete: true },
     ];
@@ -92,12 +94,16 @@ test('budget trends can switch to received-income versus spending', async () => 
     const get = (name) => elements.get(`[data-trend-${name}]`);
     comparisons[1].handlers.click();
 
-    assert.equal(get('reference-label').textContent, 'Income received');
-    assert.equal(get('planned').textContent, 'R 80,00');
+    assert.equal(get('budgeted').textContent, 'R 100,00');
+    assert.equal(get('received').textContent, 'R 80,00');
+    assert.equal(get('spent').textContent, 'R 90,00');
     assert.equal(get('variance-label').textContent, 'Received minus spending - completed periods');
-    assert.equal(get('difference-heading').textContent, 'Balance');
-    assert.equal(get('table').children[0].children[2].textContent, 'R 80,00');
-    assert.equal(get('table').children[0].children[4].textContent, 'R 10,00 spending above income');
+    assert.equal(get('table-comparison').textContent, 'Balance vs income');
+    assert.equal(get('table').children[0].children[2].textContent, 'R 100,00');
+    assert.equal(get('table').children[0].children[3].textContent, 'R 80,00');
+    assert.equal(get('table').children[0].children[4].textContent, 'R 90,00');
+    assert.equal(get('table').children[0].children[5].textContent, 'R 10,00 spending above income');
+    assert.ok(get('chart').children[0].children.find((child) => child.tag === 'a').children.some((child) => child.tag === 'polygon'));
 });
 
 test('chart controls switch modes ranges and budgets and show one period without requiring another', async () => {
@@ -110,7 +116,7 @@ test('chart controls switch modes ranges and budgets and show one period without
     assert.ok(get('chart').children[0].children.some((child) => child.tag === 'a'));
     modes[1].handlers.click();
     assert.equal(modes[1].attributes['aria-pressed'], 'true');
-    assert.ok(get('chart').children[0].children.find((child) => child.tag === 'a').children.some((child) => child.tag === 'rect'));
+    assert.equal(get('chart').children[0].children.find((child) => child.tag === 'a').children.filter((child) => child.tag === 'rect').length, 3);
     assert.match(get('variance-label').textContent, /so far/);
     get('budget').value = '1';
     get('budget').handlers.change();
@@ -119,7 +125,9 @@ test('chart controls switch modes ranges and budgets and show one period without
     get('range').handlers.change();
     assert.equal(get('table').children.length, 3);
     modes[0].handlers.click();
-    assert.ok(get('chart').children[0].children.some((child) => child.tag === 'path'));
+    assert.equal(get('chart').children[0].children.filter((child) => child.tag === 'path').length, 3);
+    const spendingSeries = get('chart').children[0].children.find((child) => child.tag === 'path' && child.attributes.class === 'stroke-orange-600');
+    assert.match(spendingSeries.attributes.d, / C /);
     get('range').value = 'all';
     get('range').handlers.change();
     assert.equal(get('table').children.length, 8);
