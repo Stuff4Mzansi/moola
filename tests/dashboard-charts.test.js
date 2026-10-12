@@ -6,7 +6,7 @@ test('spending pace geometry includes all actual, planned, and received values',
     const points = [{ spent: 1000, planned: 500 }, { spent: 4000, planned: 1500 }, { spent: null, planned: 2500 }];
     const geometry = dashboardPaceGeometry(points, 2500, 3000, 480);
 
-    assert.equal(geometry.width, 520);
+    assert.equal(geometry.width, 480);
     assert.ok(geometry.maximum > 4000);
     assert.ok(geometry.y(4000) >= geometry.top);
     assert.ok(geometry.y(3000) >= geometry.top);

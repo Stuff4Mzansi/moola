@@ -1,14 +1,22 @@
+import Alpine from 'alpinejs';
 import './notifications';
 import './subscription-analytics';
 import './budgets';
 import './budget-trends';
-import './dashboard-charts';
-import './dashboard-layout';
+import { registerDashboardCharts } from './dashboard-charts';
+import { registerDashboardLayout } from './dashboard-layout';
+import { registerDashboardMonthlyBudget } from './dashboard-monthly-budget';
 import './debts';
 import './goals';
 import './net-worth';
 import './liquidity';
 import './confirm-actions';
+
+window.Alpine = Alpine;
+registerDashboardCharts(Alpine);
+registerDashboardLayout(Alpine);
+registerDashboardMonthlyBudget(Alpine);
+Alpine.start();
 
 document.addEventListener('DOMContentLoaded', () => {
     const sidebarToggle = document.querySelector('[data-sidebar-toggle]');

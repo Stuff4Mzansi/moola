@@ -15,13 +15,13 @@ beforeEach(function () {
 
 test('new accounts get the default dashboard and only authorized widgets', function () {
     $this->actingAs($this->user)->get(route('dashboard'))->assertOk()
-        ->assertSee('Customize dashboard')->assertViewHas('dashboardLayout', $this->layout)
+        ->assertSee('Customize detailed views')->assertViewHas('dashboardLayout', $this->layout)
         ->assertDontSee('data-layout-widget="household"', false)
         ->assertDontSee('data-layout-widget="category-trends"', false)
         ->assertDontSee('Category spending trends');
 
     expect(collect($this->layout)->firstWhere('id', 'goal-forecast')['visible'])->toBeTrue()
-        ->and(collect($this->layout)->firstWhere('id', 'budget-pace')['visible'])->toBeTrue()
+        ->and(collect($this->layout)->firstWhere('id', 'budget-pace')['visible'])->toBeFalse()
         ->and(collect($this->layout)->firstWhere('id', 'spending-mix')['visible'])->toBeFalse();
 
     $admin = User::factory()->admin()->create();
@@ -44,13 +44,13 @@ test('layouts persist ordering visibility and tile sizes only for the current ac
         ->and($other->fresh()->dashboard_layout)->toBeNull();
 
     $this->get(route('dashboard'))->assertOk()->assertViewHas('dashboardLayout', $layout)
-        ->assertSee('data-layout-widget="subscriptions" data-width="small" data-height="compact"  hidden', false);
+        ->assertSee('data-layout-widget="'.$layout[0]['id'].'" data-width="small" data-height="compact" style="order: 0"', false);
 });
 
 test('all widgets can be hidden and the default layout can be restored', function () {
     $hidden = array_map(fn (array $widget): array => [...$widget, 'visible' => false], $this->layout);
     $this->actingAs($this->user)->putJson(route('dashboard.layout.update'), ['widgets' => $hidden])->assertOk();
-    $this->get(route('dashboard'))->assertOk()->assertViewHas('dashboardLayout', $hidden)->assertSee('Your dashboard is clear');
+    $this->get(route('dashboard'))->assertOk()->assertViewHas('dashboardLayout', $hidden)->assertSee('No detailed views selected');
     $this->putJson(route('dashboard.layout.update'), ['widgets' => $this->layout])->assertOk();
     expect($this->user->fresh()->dashboard_layout)->toBe($this->layout);
 });

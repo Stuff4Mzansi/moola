@@ -37,12 +37,12 @@
     <div class="overflow-x-auto border-b border-base-300">
         <div class="tabs tabs-border w-max min-w-full" role="tablist" aria-label="Budget views">
             @foreach($budgetTabs as $tab => $label)
-            <button type="button" id="budget-tab-{{ $tab }}" @class(['tab gap-2 px-5', 'tab-active' => $tab === $activeBudgetTab]) role="tab" aria-controls="budget-panel-{{ $tab }}" aria-selected="{{ $tab === $activeBudgetTab ? 'true' : 'false' }}" tabindex="{{ $tab === $activeBudgetTab ? '0' : '-1' }}" data-budget-tab="{{ $tab }}">{{ $label }}@if($tab === 'expenses')<span class="badge badge-sm badge-ghost">{{ $transactions->count() }}</span>@endif</button>
+            <button type="button" id="budget-tab-{{ $tab }}" @class(['tab gap-2 px-5', 'tab-active' => $tab === $activeBudgetTab]) x-bind:class="{ 'tab-active': activeTab === @js($tab) }" role="tab" aria-controls="budget-panel-{{ $tab }}" aria-selected="{{ $tab === $activeBudgetTab ? 'true' : 'false' }}" x-bind:aria-selected="activeTab === @js($tab)" tabindex="{{ $tab === $activeBudgetTab ? '0' : '-1' }}" x-bind:tabindex="activeTab === @js($tab) ? 0 : -1" data-budget-tab="{{ $tab }}">{{ $label }}@if($tab === 'expenses')<span class="badge badge-sm badge-ghost">{{ $transactions->count() }}</span>@endif</button>
             @endforeach
         </div>
     </div>
     @foreach(array_keys($budgetTabs) as $tab)
-    <div id="budget-panel-{{ $tab }}" role="tabpanel" aria-labelledby="budget-tab-{{ $tab }}" tabindex="0" data-budget-panel="{{ $tab }}" @if($tab !== $activeBudgetTab) hidden @endif>
+    <div id="budget-panel-{{ $tab }}" role="tabpanel" aria-labelledby="budget-tab-{{ $tab }}" tabindex="0" data-budget-panel="{{ $tab }}" x-bind:hidden="activeTab !== @js($tab)" @if($tab !== $activeBudgetTab) hidden @endif>
         @include('budgets.'.($tab === 'subscriptions' ? 'charges' : $tab))
     </div>
     @endforeach

@@ -1,5 +1,10 @@
 <?php
 
+use App\Models\Budget;
+use App\Models\BudgetCategory;
+use App\Models\BudgetGroup;
+use App\Models\BudgetPeriod;
+use App\Models\BudgetTransaction;
 use App\Models\Subscription;
 use App\Models\User;
 use App\UserRole;
@@ -24,6 +29,7 @@ test('dashboard shows subscription estimates chart and correctly ordered renewal
     $this->actingAs($this->user)->get(route('dashboard'))->assertOk()
         ->assertSee('Subscription overview')->assertSee('dashboard-category-chart-title', false)
         ->assertSee('class="mx-auto w-28 sm:w-32"', false)
+        ->assertSee('Cash-flow outlook')->assertSee('Forecast low point')->assertSee('Weekly service')
         ->assertSee('Largest recurring cost')->assertSee('Explore forecasts and potential savings')
         ->assertViewHas('activeCount', 3)->assertViewHas('monthlyCostCents', 15333)
         ->assertViewHas('analytics', fn (array $analytics): bool => $analytics['annualCostCents'] === 184000 && $analytics['next7DaysCostCents'] === 13000 && $analytics['next7DaysPaymentCount'] === 2)
@@ -52,7 +58,59 @@ test('dashboard and subscription page use identical analytics', function () {
 
 test('dashboard offers adding the first subscription without rendering an empty chart', function () {
     $this->actingAs($this->user)->get(route('dashboard'))->assertOk()->assertSee('Track your first subscription')
-        ->assertSee(route('subscriptions.create'), false)->assertDontSee('dashboard-category-chart-title', false);
+        ->assertSee(route('subscriptions.create'), false)
+        ->assertSee('No upcoming income or spending is scheduled in this forecast window.')
+        ->assertDontSee('dashboard-category-chart-title', false);
+});
+
+test('dashboard summarizes spending pace and top spending categories for the selected monthly budget', function () {
+    $this->travelTo(Carbon::parse('2026-10-12 12:00:00'));
+    $budget = Budget::factory()->create(['user_id' => $this->user->id, 'name' => 'October plan', 'scope' => 'personal', 'repeat_cycle' => 'monthly']);
+    $period = BudgetPeriod::factory()->for($budget)->create(['start_date' => '2026-10-01', 'end_date' => '2026-10-31']);
+    $group = BudgetGroup::factory()->create(['budget_period_id' => $period->id, 'name' => 'Essentials']);
+    $categories = collect([
+        ['name' => 'Day-to-day', 'allocated_cents' => 600000, 'spent_cents' => 180000],
+        ['name' => 'Debt', 'allocated_cents' => 250000, 'spent_cents' => 70000],
+        ['name' => 'Recurring', 'allocated_cents' => 150000, 'spent_cents' => 50000],
+    ])->map(function (array $data) use ($period, $group): array {
+        $category = BudgetCategory::factory()->create([
+            'budget_period_id' => $period->id,
+            'budget_group_id' => $group->id,
+            'name' => $data['name'],
+            'allocated_cents' => $data['allocated_cents'],
+        ]);
+        BudgetTransaction::factory()->create([
+            'budget_period_id' => $period->id,
+            'budget_category_id' => $category->id,
+            'amount_cents' => $data['spent_cents'],
+            'date' => '2026-10-10',
+        ]);
+
+        return ['name' => $data['name'], 'spent' => $data['spent_cents']];
+    });
+
+    $this->actingAs($this->user)->get(route('dashboard', ['budget' => $period->id]))->assertOk()
+        ->assertSee('Budget for this month')
+        ->assertSee('x-data="dashboardMonthlyBudget"', false)
+        ->assertSee('Expected EoM')
+        ->assertSee('Underspend R 2,250.00')
+        ->assertSee('R 7,000.00 left')
+        ->assertSee('Biggest spending categories')
+        ->assertSee('Day-to-day')
+        ->assertSee('Debt')
+        ->assertSee('Recurring')
+        ->assertViewHas('dashboardBudget', fn (array $card): bool => $card['period']->id === $period->id
+            && $card['totals']['spent'] === 300000
+            && $card['forecastSpent'] === 775000
+            // Top spending is reported by category, not by its enclosing group, and ordered largest to smallest.
+            && $card['topSpentRows']->pluck('name')->all() === ['Day-to-day', 'Debt', 'Recurring']);
+});
+
+test('dashboard offers budget creation when there is no active budget period', function () {
+    $this->actingAs($this->user)->get(route('dashboard'))->assertOk()
+        ->assertSee('Budget for this month')
+        ->assertSee('Create a budget')
+        ->assertSee(route('budgets.index'), false);
 });
 
 test('dashboard excludes inactive subscriptions and renewals beyond thirty days', function () {

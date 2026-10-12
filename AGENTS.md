@@ -25,6 +25,12 @@ These rules apply to every agent making UI changes anywhere in this repository, 
 - Run the frontend build when styles change and relevant existing tests when behavior changes. Inspect the rendered UI when a preview is available; state any visual verification limitation accurately.
 - A UI change is incomplete if it regresses compactness or equal-height row alignment without an explicit user request.
 
+## JavaScript conventions
+
+- Use Alpine.js for all JavaScript behavior added to Blade views: interactivity, state, event handling, and DOM updates must go through Alpine (`x-data`, `x-on`, `x-bind`, `x-show`/`x-bind:hidden`, etc.) rather than bespoke `addEventListener`/`DOMContentLoaded` wiring. See `resources/js/budget-page.js` and `resources/views/budgets/index.blade.php` as the reference pattern: page state lives in an `Alpine.data(...)` component, and the Blade view wires it up with `x-data` plus `x-on:*` handlers.
+- Keep Alpine component logic in a dedicated `resources/js/*.js` module registered via `Alpine.data(...)`, imported and registered once in `resources/js/app.js` alongside `Alpine.start()`. Do not call `Alpine.start()` more than once.
+- Only reach for plain JavaScript outside Alpine when Alpine cannot express the behavior (e.g. third-party chart libraries); in that case keep the non-Alpine code isolated to its own module and avoid mixing manual DOM event wiring into Alpine-managed elements.
+
 <laravel-boost-guidelines>
 === foundation rules ===
 

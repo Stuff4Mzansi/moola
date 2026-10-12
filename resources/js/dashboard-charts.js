@@ -1,7 +1,7 @@
 const chartColours = ['#6366f1', '#14b8a6', '#f59e0b', '#ec4899', '#0ea5e9', '#8b5cf6', '#84cc16', '#f97316'];
 
 export function dashboardPaceGeometry(points, planned, received, viewportWidth = 680) {
-    const width = Math.max(520, viewportWidth);
+    const width = Math.max(320, viewportWidth);
     const left = 72, right = width - 20, top = 16, bottom = 132;
     const maximum = Math.max(100, planned, received, ...points.map((point) => point.spent ?? 0), ...points.map((point) => point.planned)) * 1.1;
     const x = (index) => left + (index / Math.max(1, points.length - 1)) * (right - left);
@@ -51,8 +51,9 @@ function renderPace(section, budgets) {
     const host = section.querySelector('[data-pace-chart]');
     const geometry = dashboardPaceGeometry(budget.points, budget.planned, budget.received, host.clientWidth || 680);
     const { width, left, right, top, bottom, maximum, x, y } = geometry;
-    const svg = svgElement('svg', { viewBox: `0 0 ${width} 176`, width, height: 176, class: 'block max-w-none', style: `width:${width}px;height:176px`, role: 'img', 'aria-labelledby': 'dashboard-budget-pace-title dashboard-budget-pace-description' });
-    svg.append(svgElement('title', { id: 'dashboard-budget-pace-description' }, `${budget.name}: cumulative spending, budget pace and received income from ${shortDate(budget.start)} to ${shortDate(budget.end)}.`));
+    const svg = svgElement('svg', { viewBox: `0 0 ${width} 176`, class: 'block h-auto w-full', role: 'img', 'aria-labelledby': 'dashboard-budget-pace-title dashboard-budget-pace-svg-title dashboard-budget-pace-description' });
+    svg.append(svgElement('title', { id: 'dashboard-budget-pace-svg-title' }, `${budget.name} spending pace`));
+    svg.append(svgElement('desc', { id: 'dashboard-budget-pace-description' }, `Cumulative recorded spending, straight-line budget pace, and total income received by ${shortDate(budget.start)} to ${shortDate(budget.end)}.`));
     for (let tick = 0; tick <= 3; tick++) {
         const amount = maximum * tick / 3;
         const position = y(amount);
@@ -64,14 +65,15 @@ function renderPace(section, budgets) {
     }
     svg.append(svgElement('path', { d: linePath(budget.points, 'planned', geometry), fill: 'none', class: 'stroke-primary', 'stroke-width': 2, 'stroke-dasharray': '6 4' }));
     svg.append(svgElement('path', { d: linePath(budget.points, 'spent', geometry), fill: 'none', class: 'stroke-orange-600', 'stroke-width': 2.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
-    const tickInterval = Math.max(1, Math.ceil((budget.points.length - 1) / 6));
+    const targetTicks = width < 380 ? 3 : width < 600 ? 4 : 6;
+    const tickInterval = Math.max(1, Math.ceil((budget.points.length - 1) / targetTicks));
     budget.points.forEach((point, index) => {
         if (index === 0 || index === budget.points.length - 1 || index % tickInterval === 0) {
             svg.append(svgElement('text', { x: x(index), y: bottom + 18, 'text-anchor': index === 0 ? 'start' : index === budget.points.length - 1 ? 'end' : 'middle', 'font-size': 9, class: 'fill-base-content', opacity: 0.65 }, shortDate(point.date)));
         }
     });
     host.replaceChildren(svg);
-    section.querySelector('[data-pace-summary]').textContent = `${money(budget.spent)} spent · ${money(budget.planned)} planned · ${money(budget.received)} received`;
+    section.querySelector('[data-pace-summary]').textContent = `${money(budget.spent)} spent · ${money(budget.planned)} planned · ${money(budget.received)} income received to date`;
     const link = section.querySelector('[data-pace-link]');
     link.href = budget.url;
     link.textContent = `Review ${budget.name}`;
@@ -120,26 +122,74 @@ function renderMix(section, budgets) {
     legend.hidden = total === 0;
 }
 
-function initializeDashboardCharts() {
-    document.querySelectorAll('[data-dashboard-budget-pace]').forEach((section) => {
-        const data = section.querySelector('[data-pace-data]');
-        if (!data) return;
-        const budgets = JSON.parse(data.textContent);
-        const selector = section.querySelector('[data-pace-budget]');
-        selector.value = String(budgets[0].id);
-        selector.addEventListener('change', () => renderPace(section, budgets));
-        renderPace(section, budgets);
-        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => renderPace(section, budgets)).observe(section.querySelector('[data-pace-chart]'));
-    });
-    document.querySelectorAll('[data-dashboard-spending-mix]').forEach((section) => {
-        const data = section.querySelector('[data-mix-data]');
-        if (!data) return;
-        const budgets = JSON.parse(data.textContent);
-        const selector = section.querySelector('[data-mix-budget]');
-        selector.value = String(budgets[0].id);
-        selector.addEventListener('change', () => renderMix(section, budgets));
-        renderMix(section, budgets);
-    });
-}
+export function registerDashboardCharts(Alpine) {
+    Alpine.data('dashboardPaceChart', () => ({
+        budgets: [],
+        budgetId: '',
+        observer: null,
 
-if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', initializeDashboardCharts);
+        init() {
+            const data = this.$el.querySelector('[data-pace-data]');
+            if (!data) {
+                return;
+            }
+            this.budgets = JSON.parse(data.textContent);
+            const selector = this.$el.querySelector('[data-pace-budget]');
+            this.budgetId = selector.value || String(this.budgets[0]?.id ?? '');
+            this.$nextTick(() => {
+                this.render();
+                const host = this.$el.querySelector('[data-pace-chart]');
+                if (typeof ResizeObserver !== 'undefined' && host) {
+                    this.observer = new ResizeObserver(() => this.render());
+                    this.observer.observe(host);
+                }
+            });
+        },
+
+        destroy() {
+            this.observer?.disconnect();
+        },
+
+        selectBudget(event) {
+            this.budgetId = event.target.value;
+            this.render();
+        },
+
+        render() {
+            if (this.budgets.length) {
+                const selector = this.$el.querySelector('[data-pace-budget]');
+                selector.value = this.budgetId;
+                renderPace(this.$el, this.budgets);
+            }
+        },
+    }));
+
+    Alpine.data('dashboardMixChart', () => ({
+        budgets: [],
+        budgetId: '',
+
+        init() {
+            const data = this.$el.querySelector('[data-mix-data]');
+            if (!data) {
+                return;
+            }
+            this.budgets = JSON.parse(data.textContent);
+            const selector = this.$el.querySelector('[data-mix-budget]');
+            this.budgetId = selector.value || String(this.budgets[0]?.id ?? '');
+            this.$nextTick(() => this.render());
+        },
+
+        selectBudget(event) {
+            this.budgetId = event.target.value;
+            this.render();
+        },
+
+        render() {
+            if (this.budgets.length) {
+                const selector = this.$el.querySelector('[data-mix-budget]');
+                selector.value = this.budgetId;
+                renderMix(this.$el, this.budgets);
+            }
+        },
+    }));
+}

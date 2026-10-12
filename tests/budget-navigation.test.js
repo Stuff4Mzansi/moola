@@ -1,62 +1,104 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import vm from 'node:vm';
-
-const source = readFileSync(new URL('../resources/js/budgets.js', import.meta.url), 'utf8');
+import { budgetPage } from '../resources/js/budget-page.js';
 
 function navigationHarness(tab) {
-    const tabs = ['overview', 'plan', 'expenses', 'subscriptions', 'recurring', 'review'].map((name) => ({
+    const tabs = ['overview', 'review', 'plan', 'expenses', 'subscriptions', 'recurring', 'notifications'].map((name) => ({
         dataset: { budgetTab: name },
-        classes: new Set(),
-        attributes: {},
-        classList: { toggle(value, active) { if (active) this.owner.classes.add(value); else this.owner.classes.delete(value); } },
-        setAttribute(name, value) { this.attributes[name] = value; },
-        focus() { this.focused = true; },
+        focused: false,
+        hasAttribute(attribute) {
+            return attribute === 'data-budget-tab';
+        },
+        focus() {
+            this.focused = true;
+        },
     }));
-    tabs.forEach((item) => { item.classList.owner = item; });
-    const panels = tabs.map((item) => ({ dataset: { budgetPanel: item.dataset.budgetTab }, hidden: true }));
-    const handlers = new Map();
     const workspace = {
-        querySelectorAll(selector) { return selector === '[data-budget-tab]' ? tabs : panels; },
+        querySelectorAll(selector) {
+            return selector === '[data-budget-tab]' ? tabs : [];
+        },
     };
     const page = {
-        querySelector(selector) { return selector === '[data-budget-workspace]' ? workspace : { addEventListener() {} }; },
-        addEventListener(name, handler) { handlers.set(name, handler); },
+        querySelector(selector) {
+            return {
+                '[data-budget-workspace]': workspace,
+                '[data-budget-status]': {},
+                '[data-budget-refresh]': {},
+                '[data-budget-undo]': {},
+            }[selector];
+        },
     };
     const location = { href: `https://moola.test/budgets?period=42&tab=${encodeURIComponent(tab)}` };
-    const document = { querySelector() { return page; }, addEventListener(name, handler) { handlers.set(name, handler); } };
     const history = { replaceState(state, title, url) { location.href = url.toString(); } };
-    vm.runInNewContext(source, { document, history, location, URL, WeakSet, Intl });
-    handlers.get('DOMContentLoaded')();
-    return { tabs, panels, handlers, location };
+    const previousGlobals = {
+        document: globalThis.document,
+        history: globalThis.history,
+        location: globalThis.location,
+    };
+    globalThis.document = { body: { dataset: { currencyPrefix: 'R ' } }, activeElement: null };
+    globalThis.history = history;
+    globalThis.location = location;
+
+    const component = budgetPage();
+    component.$root = page;
+    component.init();
+
+    return {
+        component,
+        tabs,
+        location,
+        restore() {
+            for (const [name, value] of Object.entries(previousGlobals)) {
+                if (value === undefined) {
+                    delete globalThis[name];
+                } else {
+                    globalThis[name] = value;
+                }
+            }
+        },
+    };
 }
 
-test('dashboard action links open the relevant tab and retain the selected budget period', () => {
-    for (const name of ['plan', 'expenses', 'subscriptions', 'recurring', 'review']) {
-        const { tabs, panels, location } = navigationHarness(name);
-        assert.equal(tabs.find((tab) => tab.dataset.budgetTab === name).attributes['aria-selected'], 'true');
-        assert.deepEqual(panels.filter((panel) => !panel.hidden).map((panel) => panel.dataset.budgetPanel), [name]);
-        assert.equal(new URL(location.href).searchParams.get('period'), '42');
-        assert.equal(new URL(location.href).searchParams.get('tab'), name);
+test('budget navigation selects requested tabs while retaining the selected period', () => {
+    for (const name of ['review', 'plan', 'expenses', 'subscriptions', 'recurring', 'notifications']) {
+        const harness = navigationHarness(name);
+        try {
+            assert.equal(harness.component.activeTab, name);
+            assert.equal(new URL(harness.location.href).searchParams.get('period'), '42');
+            assert.equal(new URL(harness.location.href).searchParams.get('tab'), name);
+        } finally {
+            harness.restore();
+        }
     }
 });
 
-test('unrecognized or malformed tab URLs fall back to analytics safely', () => {
-    for (const name of ['', 'missing', '\"invalid]']) {
-        const { tabs, panels, location } = navigationHarness(name);
-        assert.equal(tabs[0].attributes['aria-selected'], 'true');
-        assert.equal(panels[0].hidden, false);
-        assert.equal(new URL(location.href).searchParams.has('tab'), false);
+test('unrecognized or malformed tab URLs fall back to overview', () => {
+    for (const name of ['', 'missing', '"invalid]']) {
+        const harness = navigationHarness(name);
+        try {
+            assert.equal(harness.component.activeTab, 'overview');
+            assert.equal(new URL(harness.location.href).searchParams.get('period'), '42');
+            assert.equal(new URL(harness.location.href).searchParams.has('tab'), false);
+        } finally {
+            harness.restore();
+        }
     }
 });
 
-test('keyboard navigation updates the link for refresh while retaining the period', () => {
-    const { tabs, panels, handlers, location } = navigationHarness('plan');
-    const event = { target: { closest() { return tabs[1]; } }, key: 'ArrowRight', preventDefault() {} };
-    handlers.get('keydown')(event);
-    assert.equal(tabs[2].focused, true);
-    assert.equal(panels[2].hidden, false);
-    assert.equal(new URL(location.href).searchParams.get('tab'), 'expenses');
-    assert.equal(new URL(location.href).searchParams.get('period'), '42');
+test('keyboard navigation updates the selected tab and URL while retaining the period', () => {
+    const harness = navigationHarness('plan');
+    try {
+        const event = {
+            target: { closest() { return harness.tabs[2]; } },
+            key: 'ArrowRight',
+            preventDefault() {},
+        };
+        harness.component.handleKeydown(event);
+        assert.equal(harness.tabs[3].focused, true);
+        assert.equal(harness.component.activeTab, 'expenses');
+        assert.equal(new URL(harness.location.href).searchParams.get('tab'), 'expenses');
+        assert.equal(new URL(harness.location.href).searchParams.get('period'), '42');
+    } finally {
+        harness.restore();
+    }
 });

@@ -20,6 +20,7 @@
 .dashboard-widget[data-height="tall"] .dashboard-widget-body { min-height: 40rem; overflow: auto; }
 .dashboard-widget[data-dragging="true"] { opacity: 0.45; }
 .dashboard-widget[data-drop-target="true"] { outline: 2px dashed var(--color-primary); outline-offset: 4px; }
+.select { appearance: none; }
 
 @media (min-width: 1024px) {
     .dashboard-widget-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
