@@ -2,7 +2,7 @@ const chartColours = ['#6366f1', '#14b8a6', '#f59e0b', '#ec4899', '#0ea5e9', '#8
 
 export function dashboardPaceGeometry(points, planned, received, viewportWidth = 680) {
     const width = Math.max(320, viewportWidth);
-    const left = 72, right = width - 20, top = 16, bottom = 132;
+    const left = 32, right = width, top = 16, bottom = 132;
     const maximum = Math.max(100, planned, received, ...points.map((point) => point.spent ?? 0), ...points.map((point) => point.planned)) * 1.1;
     const x = (index) => left + (index / Math.max(1, points.length - 1)) * (right - left);
     const y = (amount) => bottom - amount / maximum * (bottom - top);

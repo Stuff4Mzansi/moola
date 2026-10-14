@@ -5,7 +5,6 @@ import './budgets';
 import './budget-trends';
 import { registerDashboardCharts } from './dashboard-charts';
 import { registerDashboardLayout } from './dashboard-layout';
-import { registerDashboardMonthlyBudget } from './dashboard-monthly-budget';
 import './debts';
 import './goals';
 import './net-worth';
@@ -15,7 +14,6 @@ import './confirm-actions';
 window.Alpine = Alpine;
 registerDashboardCharts(Alpine);
 registerDashboardLayout(Alpine);
-registerDashboardMonthlyBudget(Alpine);
 Alpine.start();
 
 document.addEventListener('DOMContentLoaded', () => {

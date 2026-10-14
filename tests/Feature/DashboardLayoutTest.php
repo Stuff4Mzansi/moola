@@ -16,6 +16,7 @@ beforeEach(function () {
 test('new accounts get the default dashboard and only authorized widgets', function () {
     $response = $this->actingAs($this->user)->get(route('dashboard'))->assertOk()
         ->assertSee('Customize detailed views')->assertViewHas('dashboardLayout', $this->layout)
+        ->assertDontSee('Needs attention')
         ->assertDontSee('data-layout-widget="household"', false)
         ->assertDontSee('data-layout-widget="budgets"', false)
         ->assertDontSee('data-layout-widget="category-trends"', false)
@@ -26,14 +27,12 @@ test('new accounts get the default dashboard and only authorized widgets', funct
         ->and(strpos($response->getContent(), 'id="dashboard-budgets-title"'))->toBeLessThan(strpos($response->getContent(), 'x-ref="dashboardDetails"'));
 
     expect(collect($this->layout)->firstWhere('id', 'goal-forecast')['visible'])->toBeTrue()
-        ->and(collect($this->layout)->firstWhere('id', 'budget-pace')['visible'])->toBeFalse()
         ->and(collect($this->layout)->firstWhere('id', 'spending-mix')['visible'])->toBeFalse()
-        ->and(collect($this->layout)->pluck('id'))->not->toContain('budgets');
+        ->and(collect($this->layout)->pluck('id'))->not->toContain('budgets')->not->toContain('budget-pace');
 
     $admin = User::factory()->admin()->create();
     $this->actingAs($admin)->get(route('dashboard'))->assertOk()->assertSee('data-layout-widget="household"', false)
         ->assertSee('data-layout-widget="goal-forecast"', false)
-        ->assertSee('data-layout-widget="budget-pace"', false)
         ->assertSee('data-layout-widget="spending-mix"', false);
 });
 
@@ -83,6 +82,7 @@ test('saved layouts recover unknown duplicate and invalid entries and append new
         ['id' => 'subscriptions', 'visible' => true],
         ['id' => 'category-trends', 'visible' => true, 'width' => 'wide', 'height' => 'auto'],
         ['id' => 'obsolete'],
+        ['id' => 'budget-pace', 'visible' => true, 'width' => 'wide', 'height' => 'auto'],
         ['id' => 'budgets', 'visible' => 'no', 'width' => 'huge', 'height' => 'negative'],
         'invalid',
     ];
@@ -91,7 +91,7 @@ test('saved layouts recover unknown duplicate and invalid entries and append new
     expect($layout)->toHaveCount(count($this->layout))
         ->and($layout[0])->toBe(['id' => 'subscriptions', 'visible' => false, 'width' => 'medium', 'height' => 'regular'])
         ->and($layout[1]['id'])->toBe('goals')
-        ->and(array_column($layout, 'id'))->toContain('goals')->not->toContain('obsolete')->not->toContain('budgets');
+        ->and(array_column($layout, 'id'))->toContain('goals')->not->toContain('obsolete')->not->toContain('budgets')->not->toContain('budget-pace');
 });
 
 test('role changes remove previously saved administrator widgets', function () {

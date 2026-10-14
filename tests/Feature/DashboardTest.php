@@ -8,6 +8,8 @@ use App\Models\BudgetIncome;
 use App\Models\BudgetPeriod;
 use App\Models\BudgetRecurringExpense;
 use App\Models\BudgetTransaction;
+use App\Models\SavingsContribution;
+use App\Models\SavingsGoal;
 use App\Models\Subscription;
 use App\Models\User;
 use App\UserRole;
@@ -32,7 +34,8 @@ test('dashboard shows subscription estimates chart and correctly ordered renewal
     $this->actingAs($this->user)->get(route('dashboard'))->assertOk()
         ->assertSee('Subscription overview')->assertSee('dashboard-category-chart-title', false)
         ->assertSee('class="mx-auto w-28 sm:w-32"', false)
-        ->assertSee('Cash-flow outlook')->assertSee('Forecast low point')->assertSee('Weekly service')
+        ->assertDontSee('Cash-flow outlook')->assertDontSee('Current budget period')->assertSee('Weekly service')
+        ->assertDontSee('Increased by')->assertDontSee('Decreased by')->assertDontSee('No change since')
         ->assertSee('Largest recurring cost')->assertSee('Explore forecasts and potential savings')
         ->assertViewHas('activeCount', 3)->assertViewHas('monthlyCostCents', 15333)
         ->assertViewHas('analytics', fn (array $analytics): bool => $analytics['annualCostCents'] === 184000 && $analytics['next7DaysCostCents'] === 13000 && $analytics['next7DaysPaymentCount'] === 2)
@@ -49,6 +52,24 @@ test('dashboard analytics stays private even for administrators', function (User
         ->assertViewHas('renewals', fn (Collection $renewals): bool => $renewals->isEmpty());
 })->with([UserRole::Member, UserRole::Admin, UserRole::SuperAdmin]);
 
+test('savings goal summary includes an accessible progress bar', function () {
+    $goal = SavingsGoal::factory()->create([
+        'user_id' => $this->user->id,
+        'target_cents' => 100000,
+        'opening_cents' => 20000,
+    ]);
+    SavingsContribution::factory()->create([
+        'savings_goal_id' => $goal->id,
+        'amount_cents' => 30000,
+        'date' => '2026-10-02',
+    ]);
+
+    $this->actingAs($this->user)->get(route('dashboard'))->assertOk()
+        ->assertSee('Saved toward goals')
+        ->assertSee('50% of R 1,000.00 target')
+        ->assertSee('value="50" max="100" aria-label="Savings goal progress: 50 percent of target"', false);
+});
+
 test('dashboard and subscription page use identical analytics', function () {
     Subscription::factory()->count(3)->for($this->user)->create();
 
@@ -62,11 +83,12 @@ test('dashboard and subscription page use identical analytics', function () {
 test('dashboard offers adding the first subscription without rendering an empty chart', function () {
     $this->actingAs($this->user)->get(route('dashboard'))->assertOk()->assertSee('Track your first subscription')
         ->assertSee(route('subscriptions.create'), false)
-        ->assertSee('No upcoming income or spending is scheduled in this forecast window.')
+        ->assertSee('Budget at a glance')
+        ->assertDontSee('Cash-flow outlook')
         ->assertDontSee('dashboard-category-chart-title', false);
 });
 
-test('dashboard shows every income entry for the selected budget period separately from the cash-flow forecast', function () {
+test('budget at a glance shows every income entry for the selected budget period', function () {
     $budget = Budget::factory()->create(['user_id' => $this->user->id, 'name' => 'Income plan', 'scope' => 'personal', 'repeat_cycle' => 'monthly']);
     $period = BudgetPeriod::factory()->for($budget)->create([
         'name' => 'December 2026',
@@ -108,7 +130,7 @@ test('dashboard shows every income entry for the selected budget period separate
     $this->assertDatabaseHas('users', ['id' => $this->user->id, 'dashboard_budget_period_id' => $period->id]);
 
     $this->get(route('dashboard'))->assertOk()
-        ->assertSee('Income by budget period')
+        ->assertSee('Income for this period')
         ->assertSee('Other income plan')
         ->assertSee('December salary')
         ->assertSee('December bonus')
@@ -122,11 +144,12 @@ test('dashboard shows every income entry for the selected budget period separate
         ->assertSee('R 15,000.00')
         ->assertDontSee('October pay')
         ->assertDontSee('Other budget income')
-        ->assertSee('No upcoming income or spending is scheduled in this forecast window.')
+        ->assertDontSee('Cash-flow outlook')
+        ->assertDontSee('Current budget period')
         ->assertViewHas('dashboardPeriod', fn (BudgetPeriod $selected): bool => $selected->is($period))
         ->assertViewHas('dashboardBudget', fn (array $card): bool => $card['period']->is($period))
         ->assertViewHas('budgetTrends', fn (array $trends): bool => count($trends) === 1 && $trends[0]['id'] === $budget->id)
-        ->assertViewHas('periodIncomes', fn (Collection $incomes): bool => $incomes->count() === 2);
+        ->assertViewHas('dashboardBudget', fn (array $card): bool => $card['incomes']->count() === 2);
 
     $this->post(route('dashboard.budget-period.update'), ['period_id' => $otherBudgetPeriod->id])->assertRedirect(route('dashboard'));
     $this->get(route('dashboard'))->assertOk()
@@ -230,10 +253,10 @@ test('dashboard cash-flow events use amounts from the selected budget period onl
 
     $this->get(route('dashboard'))->assertOk()
         ->assertSee('Selected salary')
-        ->assertSee('Selected service commitment')
-        ->assertSee('Selected bill')
         ->assertDontSee('Unselected salary')
         ->assertDontSee('Unselected bill')
+        ->assertDontSee('Cash-flow outlook')
+        ->assertDontSee('Upcoming events')
         ->assertViewHas('liquidityOverview', function (array $liquidity): bool {
             $events = $liquidity['events'];
 
@@ -258,7 +281,7 @@ test('dashboard filter defaults to the current period and persists only periods 
     $this->assertDatabaseHas('users', ['id' => $this->user->id, 'dashboard_budget_period_id' => null]);
 });
 
-test('dashboard summarizes spending pace and top spending categories for the selected monthly budget', function () {
+test('budget at a glance summarizes spending pace and top spending categories for the selected budget', function () {
     $this->travelTo(Carbon::parse('2026-10-12 12:00:00'));
     $budget = Budget::factory()->create(['user_id' => $this->user->id, 'name' => 'October plan', 'scope' => 'personal', 'repeat_cycle' => 'monthly']);
     $period = BudgetPeriod::factory()->for($budget)->create(['start_date' => '2026-10-01', 'end_date' => '2026-10-31']);
@@ -285,15 +308,12 @@ test('dashboard summarizes spending pace and top spending categories for the sel
     });
 
     $this->actingAs($this->user)->get(route('dashboard'))->assertOk()
-        ->assertSee('Budget for this month')
-        ->assertSee('x-data="dashboardMonthlyBudget"', false)
-        ->assertSee('Expected EoM')
-        ->assertSee('Underspend R 2,250.00')
-        ->assertSee('R 7,000.00 left')
-        ->assertSee('Biggest spending categories')
-        ->assertSee('Day-to-day')
-        ->assertSee('Debt')
-        ->assertSee('Recurring')
+        ->assertSee('Budget at a glance')
+        ->assertDontSee('dashboard-month-budget-title', false)
+        ->assertDontSee('dashboardMonthlyBudget')
+        ->assertDontSee('Cash-flow outlook')
+        ->assertSee('Spending by group')
+        ->assertSee('Essentials')
         ->assertViewHas('dashboardBudget', fn (array $card): bool => $card['period']->id === $period->id
             && $card['totals']['spent'] === 300000
             && $card['forecastSpent'] === 775000
@@ -303,7 +323,9 @@ test('dashboard summarizes spending pace and top spending categories for the sel
 
 test('dashboard offers budget creation when there is no active budget period', function () {
     $this->actingAs($this->user)->get(route('dashboard'))->assertOk()
-        ->assertSee('Budget for this month')
+        ->assertSee('Give your money a plan')
+        ->assertDontSee('dashboard-month-budget-title', false)
+        ->assertDontSee('Cash-flow outlook')
         ->assertSee('Create a budget')
         ->assertSee(route('budgets.index'), false);
 });

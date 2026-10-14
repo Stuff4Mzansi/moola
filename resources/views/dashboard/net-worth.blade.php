@@ -21,7 +21,7 @@
             @endforeach
         </dl>
         @if($netWorthOverview['change'] !== null)
-            <p class="border-t border-base-300 px-3 py-1.5 text-[10px] opacity-65">{{ $currencyPrefix }}{{ number_format(abs($netWorthOverview['change']) / 100, 2) }} {{ $netWorthOverview['change'] >= 0 ? 'higher' : 'lower' }} than {{ $netWorthOverview['latest']->date->format('d M Y') }} snapshot.</p>
+            <p class="border-t border-base-300 px-3 py-1.5 text-[10px] opacity-65">{{ $currencyPrefix }}{{ number_format(abs($netWorthOverview['change']) / 100, 2) }} {{ $netWorthOverview['change'] >= 0 ? 'higher' : 'lower' }} than the previous snapshot from {{ $netWorthOverview['previous']->date->format('d M Y') }}.</p>
         @endif
         @if($netWorthOverview['snapshots']->isNotEmpty())
             <div class="border-t border-base-300 p-2.5">

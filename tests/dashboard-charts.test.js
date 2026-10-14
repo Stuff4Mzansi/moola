@@ -10,7 +10,10 @@ test('spending pace geometry includes all actual, planned, and received values',
     assert.ok(geometry.maximum > 4000);
     assert.ok(geometry.y(4000) >= geometry.top);
     assert.ok(geometry.y(3000) >= geometry.top);
-    assert.ok(geometry.x(2) <= geometry.right);
+    assert.equal(geometry.x(0), geometry.left);
+    assert.equal(geometry.x(2), geometry.right);
+    assert.ok(geometry.left > 0);
+    assert.equal(geometry.right, geometry.width);
 });
 
 test('category mix allocates exact total shares and retains uncategorised amounts', () => {

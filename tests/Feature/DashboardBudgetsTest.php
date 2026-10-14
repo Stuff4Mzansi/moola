@@ -32,7 +32,7 @@ beforeEach(function () {
 
 test('dashboard separates actual spending from recurring forecasts and uses workspace totals', function () {
     BudgetRecurringExpense::factory()->create(['budget_id' => $this->budget->id, 'category_name' => 'Home', 'name' => 'Electricity', 'start_date' => '2026-10-05', 'amount_cents' => 30000]);
-    $response = $this->get(route('dashboard'))->assertOk()->assertSee('Selected budget at a glance')->assertSee('My October plan')
+    $response = $this->get(route('dashboard'))->assertOk()->assertSee('Budget at a glance')->assertSee('My October plan')
         ->assertSee('Room after scheduled expenses')->assertSee('R 500.00')->assertSee('Spending by category')
         ->assertSee('Allocate money')->assertSee('not your bank balance');
     $card = $response->viewData('budgetOverview')['cards']->sole();
@@ -48,9 +48,13 @@ test('dashboard chart data includes current spending pace and uncategorised spen
     BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => null, 'amount_cents' => 5000, 'date' => '2026-10-02']);
     $response = $this->get(route('dashboard'))->assertOk()
         ->assertSee('Selected-period spending pace')
+        ->assertSee('data-pace-chart', false)
+        ->assertDontSee('data-layout-widget="budget-pace"', false)
         ->assertSee('Selected-period spending mix')
         ->assertSee('Income received')
         ->assertSee('Uncategorised');
+    expect(strpos($response->getContent(), 'aria-label="Budget period elapsed"'))
+        ->toBeLessThan(strpos($response->getContent(), 'aria-label="Selected-period spending pace chart"'));
     $card = $response->viewData('budgetOverview')['cards']->sole();
 
     expect($card['dailyPace'])->toHaveCount(31)
@@ -69,10 +73,56 @@ test('next seven days includes both schedule types at the boundary and excludes 
     $paid = BudgetRecurringExpense::factory()->create(['budget_id' => $this->budget->id, 'category_name' => 'Home', 'start_date' => '2026-10-05', 'amount_cents' => 9000]);
     $charge = BudgetRecurringCharge::factory()->create(['budget_period_id' => $this->period->id, 'budget_recurring_expense_id' => $paid->id, 'budget_category_id' => $this->category->id, 'name' => 'Already recorded', 'scheduled_date' => '2026-10-05', 'amount_cents' => 9000]);
     BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $this->category->id, 'budget_recurring_charge_id' => $charge->id, 'amount_cents' => 8500]);
+    foreach ([
+        ['name' => 'Second upcoming bill', 'date' => '2026-10-04', 'amount' => 1000],
+        ['name' => 'Third upcoming bill', 'date' => '2026-10-06', 'amount' => 3000],
+        ['name' => 'Fourth upcoming bill', 'date' => '2026-10-08', 'amount' => 4000],
+    ] as $upcoming) {
+        BudgetRecurringExpense::factory()->create([
+            'budget_id' => $this->budget->id,
+            'category_name' => $this->category->name,
+            'name' => $upcoming['name'],
+            'start_date' => $upcoming['date'],
+            'amount_cents' => $upcoming['amount'],
+        ]);
+    }
+    BudgetIncome::factory()->create([
+        'budget_period_id' => $this->period->id,
+        'name' => 'Upcoming salary',
+        'expected_cents' => 12000,
+        'received_cents' => 2000,
+        'expected_date' => '2026-10-05',
+    ]);
+    BudgetIncome::factory()->create([
+        'budget_period_id' => $this->period->id,
+        'name' => 'Outside seven days',
+        'expected_cents' => 50000,
+        'expected_date' => '2026-10-10',
+    ]);
+    BudgetIncome::factory()->create([
+        'budget_period_id' => $this->period->id,
+        'name' => 'Already received',
+        'expected_cents' => 8000,
+        'received_cents' => 8000,
+        'expected_date' => '2026-10-06',
+    ]);
     $card = $this->get(route('dashboard'))->assertOk()->viewData('budgetOverview')['cards']->sole();
-    expect($card['dueSoonCents'])->toBe(3000)->and($card['dueSoonCount'])->toBe(2)
-        ->and($card['totals']['upcoming'])->toBe(7000)->and($card['totals']['spent'])->toBe(28500)
-        ->and($card['payments']->pluck('name')->all())->toBe(['Due today', 'Boundary bill']);
+    expect($card['dueSoonCents'])->toBe(11000)->and($card['dueSoonCount'])->toBe(5)
+        ->and($card['totals']['upcoming'])->toBe(15000)->and($card['totals']['spent'])->toBe(28500)
+        ->and($card['payments']->pluck('name')->all())->toBe(['Due today', 'Second upcoming bill', 'Third upcoming bill'])
+        ->and($card['sevenDayEvents']->count())->toBe(6)
+        ->and($card['sevenDayEvents']->where('kind', 'expense')->count())->toBe(5)
+        ->and($card['sevenDayEvents']->where('kind', 'income')->pluck('name')->all())->toBe(['Upcoming salary'])
+        ->and($card['sevenDayIncomeCents'])->toBe(10000)
+        ->and($card)->not->toHaveKey('sevenDayNetCents');
+    $this->get(route('dashboard'))->assertOk()
+        ->assertSee('aria-label="Income and scheduled payments for the next seven days"', false)
+        ->assertSee('max-h-40 divide-y divide-base-300/70 overflow-y-auto overscroll-contain', false)
+        ->assertSee('Upcoming salary')
+        ->assertSee('Second upcoming bill')->assertSee('Third upcoming bill')->assertSee('Fourth upcoming bill')
+        ->assertSee('text-success', false)->assertSee('text-warning', false)
+        ->assertDontSee(' net</span>', false)
+        ->assertSee('Income +R 100.00')->assertSee('Payments −R 110.00');
 });
 
 test('overdue forecasts are called unrecorded and are not included in next seven day totals', function () {
@@ -142,12 +192,13 @@ test('inactive periods offer the nearest future plan without presenting its amou
     $this->period->update(['start_date' => '2026-09-01', 'end_date' => '2026-09-30']);
     BudgetPeriod::factory()->create(['budget_id' => $this->budget->id, 'start_date' => '2026-12-01', 'end_date' => '2026-12-31']);
     $next = BudgetPeriod::factory()->create(['budget_id' => $this->budget->id, 'start_date' => '2026-11-01', 'end_date' => '2026-11-30']);
-    $response = $this->get(route('dashboard'))->assertOk()->assertSee('Upcoming budget period')->assertSee('Starts 1 Nov 2026')->assertSee('Selected-period spending pace');
+    $response = $this->get(route('dashboard'))->assertOk()->assertSee('Starts 1 Nov 2026')->assertSee('Selected-period spending pace')
+        ->assertDontSee('Upcoming budget period')->assertDontSee('Cash-flow outlook');
     expect($response->viewData('budgetOverview')['nextPeriod']->id)->toBe($next->id);
     expect($response->viewData('dashboardPeriod')->id)->toBe($next->id);
     $next->delete();
     $this->period->budget->periods()->where('start_date', '>', '2026-10-03')->delete();
-    $this->get(route('dashboard'))->assertOk()->assertSee('Completed budget period')->assertSee('Period ended');
+    $this->get(route('dashboard'))->assertOk()->assertSee('Period ended')->assertDontSee('Completed budget period');
 });
 
 test('custom period boundaries are inclusive and a final day forecast divides by one', function () {

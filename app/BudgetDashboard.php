@@ -4,6 +4,7 @@ namespace App;
 
 use App\Models\Budget;
 use App\Models\BudgetCommitment;
+use App\Models\BudgetIncome;
 use App\Models\BudgetPeriod;
 use App\Models\BudgetRecurringCharge;
 use App\Models\BudgetTransaction;
@@ -75,6 +76,14 @@ class BudgetDashboard
         $payments = $payments->concat($data['recurringCharges']->filter(fn (BudgetRecurringCharge $charge): bool => $charge->is_current && $charge->transaction === null)->map(fn (BudgetRecurringCharge $charge): array => ['name' => $charge->name, 'date' => $charge->scheduled_date, 'amount' => $charge->amount_cents, 'tab' => 'recurring']));
         $dueSoon = $payments->filter(fn (array $payment): bool => $payment['date']->gte($today) && $payment['date']->lte($today->addDays(6)));
         $overdue = $payments->filter(fn (array $payment): bool => $payment['date']->lt($today));
+        $sevenDayExpenses = $dueSoon->map(fn (array $payment): array => [...$payment, 'kind' => 'expense']);
+        $sevenDayIncome = $data['incomes']
+            ->filter(fn (BudgetIncome $income): bool => $income->expected_date !== null
+                && $income->expected_date->gte($today)
+                && $income->expected_date->lte($today->addDays(6))
+                && $income->expected_cents > $income->received_cents)
+            ->map(fn (BudgetIncome $income): array => ['name' => $income->name, 'date' => $income->expected_date, 'amount' => $income->expected_cents - $income->received_cents, 'tab' => 'plan', 'kind' => 'income']);
+        $sevenDayEvents = $sevenDayExpenses->concat($sevenDayIncome)->sortBy('date')->values();
         $rows = $data['analyticsRows']->map(function (array $row) use ($data): array {
             $upcoming = $data['groups']->isEmpty() ? $data['categoryRows']->first(fn (array $category): bool => $category['category']->name === $row['name'])['upcoming'] : $row['categories']->sum('upcoming');
 
@@ -125,6 +134,6 @@ class BudgetDashboard
             $spendingMix->push(['name' => 'Uncategorised', 'amount' => $uncategorised]);
         }
 
-        return ['budget' => $period->budget, 'period' => $data['period'], 'totals' => $totals, 'dailyPace' => $dailyPace, 'spendingMix' => $spendingMix->all(), 'canEdit' => $canEdit, 'role' => $period->budget->memberRole($user), 'url' => $url('overview'), 'planUrl' => $url('plan'), 'daysLeft' => $daysLeft, 'elapsedDays' => $elapsedDays, 'periodDays' => $periodDays, 'isPast' => $isPast, 'isFuture' => $isFuture, 'forecastSpent' => $isPast ? $totals['spent'] : (int) round($totals['spent'] * $periodDays / max(1, $elapsedDays)), 'elapsedPercent' => $isPast ? 100 : (int) round($elapsedDays / $periodDays * 100), 'spentPercent' => $totals['planned'] > 0 ? round($totals['spent'] / $totals['planned'] * 100, 1) : null, 'dailyRoom' => $daysLeft > 0 ? intdiv(max(0, $totals['after_commitments']), $daysLeft) : 0, 'dueSoonCents' => $dueSoon->sum('amount'), 'dueSoonCount' => $dueSoon->count(), 'overdueCount' => $overdue->count(), 'payments' => $payments->filter(fn (array $payment): bool => $payment['date']->lte($today->addDays(6)))->sortBy('date')->take(3)->values(), 'rows' => $highlightRows, 'topSpentRows' => $spendingMix->sortByDesc('amount')->take(6)->values(), 'grouped' => $data['groups']->isNotEmpty(), 'insights' => array_slice($insights, 0, 2), 'risk' => $risk];
+        return ['budget' => $period->budget, 'period' => $data['period'], 'totals' => $totals, 'incomes' => $data['incomes']->sortBy('name')->values(), 'dailyPace' => $dailyPace, 'spendingMix' => $spendingMix->all(), 'canEdit' => $canEdit, 'role' => $period->budget->memberRole($user), 'url' => $url('overview'), 'planUrl' => $url('plan'), 'daysLeft' => $daysLeft, 'elapsedDays' => $elapsedDays, 'periodDays' => $periodDays, 'isPast' => $isPast, 'isFuture' => $isFuture, 'forecastSpent' => $isPast ? $totals['spent'] : (int) round($totals['spent'] * $periodDays / max(1, $elapsedDays)), 'elapsedPercent' => $isPast ? 100 : (int) round($elapsedDays / $periodDays * 100), 'spentPercent' => $totals['planned'] > 0 ? round($totals['spent'] / $totals['planned'] * 100, 1) : null, 'dailyRoom' => $daysLeft > 0 ? intdiv(max(0, $totals['after_commitments']), $daysLeft) : 0, 'dueSoonCents' => $dueSoon->sum('amount'), 'dueSoonCount' => $dueSoon->count(), 'sevenDayEvents' => $sevenDayEvents, 'sevenDayIncomeCents' => $sevenDayIncome->sum('amount'), 'overdueCount' => $overdue->count(), 'payments' => $payments->filter(fn (array $payment): bool => $payment['date']->lte($today->addDays(6)))->sortBy('date')->take(3)->values(), 'rows' => $highlightRows, 'topSpentRows' => $spendingMix->sortByDesc('amount')->take(6)->values(), 'grouped' => $data['groups']->isNotEmpty(), 'insights' => array_slice($insights, 0, 2), 'risk' => $risk];
     }
 }

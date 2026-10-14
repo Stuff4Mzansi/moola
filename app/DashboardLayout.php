@@ -14,7 +14,7 @@ class DashboardLayout
             $widgets['debts'] = 'Debt progress';
         }
         $widgets += ['goals' => 'Savings goals', 'net-worth' => 'Net worth and liquidity', 'subscriptions' => 'Subscription overview',
-            'budget-trends' => 'Budget trends', 'goal-forecast' => 'Savings goal forecast', 'budget-pace' => 'Selected-period spending pace', 'spending-mix' => 'Selected-period spending mix'];
+            'budget-trends' => 'Budget trends', 'goal-forecast' => 'Savings goal forecast', 'spending-mix' => 'Selected-period spending mix'];
         if ($user->isAdmin()) {
             $widgets['household'] = 'Household management';
         }
@@ -25,7 +25,7 @@ class DashboardLayout
     /** @return list<array{id: string, visible: bool, width: string, height: string}> */
     public function defaults(User $user): array
     {
-        return array_map(fn (string $id): array => ['id' => $id, 'visible' => ! in_array($id, ['budget-pace', 'spending-mix'], true), 'width' => 'wide', 'height' => 'auto'], array_keys($this->widgets($user)));
+        return array_map(fn (string $id): array => ['id' => $id, 'visible' => $id !== 'spending-mix', 'width' => 'wide', 'height' => 'auto'], array_keys($this->widgets($user)));
     }
 
     /** @return list<array{id: string, visible: bool, width: string, height: string}> */

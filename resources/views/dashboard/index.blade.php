@@ -16,10 +16,36 @@
     </header>
     <p class="{{ session('status') ? 'text-sm opacity-65' : 'sr-only' }}" data-layout-status role="status" aria-live="polite" x-text="statusMessage || @js(session('status'))">{{ session('status') }}</p>
     <section aria-label="Financial summary">
-        <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <dl class="grid grid-cols-2 items-stretch gap-2 sm:grid-cols-3 xl:grid-cols-4">
             <div class="min-w-0 rounded-sm border border-l-2 border-base-300 border-l-success/70 bg-success/5 p-3"><dt class="flex items-center gap-2 text-[11px] opacity-75"><span class="grid size-7 shrink-0 place-items-center rounded-sm bg-success/10 text-success"><x-lucide-wallet class="size-4" aria-hidden="true" /></span>Unreserved cash</dt><dd class="mt-1 break-words text-base font-semibold tabular-nums">{{ $money($liquidityOverview['free']) }}</dd><p class="mt-0.5 text-[10px] opacity-55">Classified cash after reserves</p></div>
-            <div class="min-w-0 rounded-sm border border-l-2 border-base-300 border-l-primary/70 bg-primary/5 p-3"><dt class="flex items-center gap-2 text-[11px] opacity-75"><span class="grid size-7 shrink-0 place-items-center rounded-sm bg-primary/10 text-primary"><x-lucide-chart-no-axes-combined class="size-4" aria-hidden="true" /></span>Budgets in progress</dt><dd class="mt-1 text-base font-semibold tabular-nums">{{ $activeBudgetCount }}</dd><p class="mt-0.5 text-[10px] opacity-55">Visible personal and shared budgets</p></div>
-            <div class="min-w-0 rounded-sm border border-l-2 border-base-300 border-l-info/70 bg-info/5 p-3"><dt class="flex items-center gap-2 text-[11px] opacity-75"><span class="grid size-7 shrink-0 place-items-center rounded-sm bg-info/10 text-info"><x-lucide-target class="size-4" aria-hidden="true" /></span>Saved toward goals</dt><dd class="mt-1 break-words text-base font-semibold tabular-nums">{{ $money($savingsOverview['saved']) }}</dd><p class="mt-0.5 text-[10px] opacity-55">@if($savingsOverview['target'] > 0){{ number_format($goalProgress) }}% of {{ $money($savingsOverview['target']) }} target @else No active goal targets @endif</p></div>
+            <div class="min-w-0 rounded-sm border border-l-2 border-base-300 border-l-primary/70 bg-primary/5 p-3">
+                <dt class="flex items-center gap-2 text-[11px] opacity-75"><span class="grid size-7 shrink-0 place-items-center rounded-sm bg-primary/10 text-primary"><x-lucide-chart-no-axes-combined class="size-4" aria-hidden="true" /></span><a href="{{ route('net-worth.index') }}">Net Worth</a></dt>
+                <dd class="mt-1 break-words text-base font-semibold tabular-nums {{ $netWorthOverview['netWorth'] < 0 ? 'text-error' : '' }}">{{ $money($netWorthOverview['netWorth']) }}</dd>
+                <p class="mt-0.5 break-words text-[10px] opacity-55">Assets {{ $money($netWorthOverview['assetTotal']) }} · Debts and Liabilities {{ $money($netWorthOverview['debtTotal'] + $netWorthOverview['liabilityTotal']) }}</p>
+                @if($netWorthOverview['change'] !== null)
+                    <p @class(['mt-1 flex items-center gap-1 text-[10px] font-medium tabular-nums', 'text-success' => $netWorthOverview['change'] > 0, 'text-error' => $netWorthOverview['change'] < 0, 'opacity-60' => $netWorthOverview['change'] === 0])>
+                        @if($netWorthOverview['change'] > 0)
+                            <span class="grid size-5 shrink-0 place-items-center text-success"><x-lucide-trending-up class="size-3.5" aria-hidden="true" /></span>
+                            Increased by {{ $money($netWorthOverview['change']) }}
+                        @elseif($netWorthOverview['change'] < 0)
+                            <span class="grid size-5 shrink-0 place-items-center text-error"><x-lucide-trending-down class="size-3.5" aria-hidden="true" /></span>
+                            Decreased by {{ $money(abs($netWorthOverview['change'])) }}
+                        @else
+                            <span class="grid size-5 shrink-0 place-items-center text-base-content/60"><x-lucide-minus class="size-3.5" aria-hidden="true" /></span>
+                            No change
+                        @endif
+                        <span class="font-normal opacity-75">since {{ $netWorthOverview['previous']->date->format('d M Y') }}</span>
+                    </p>
+                @endif
+            </div>
+            <div class="min-w-0 rounded-sm border border-l-2 border-base-300 border-l-info/70 bg-info/5 p-3">
+                <dt class="flex items-center gap-2 text-[11px] opacity-75"><span class="grid size-7 shrink-0 place-items-center rounded-sm bg-info/10 text-info"><x-lucide-target class="size-4" aria-hidden="true" /></span>Saved toward goals</dt>
+                <dd class="mt-1 break-words text-base font-semibold tabular-nums">{{ $money($savingsOverview['saved']) }}</dd>
+                <p class="mt-0.5 text-[10px] opacity-55">@if($savingsOverview['target'] > 0){{ number_format($goalProgress) }}% of {{ $money($savingsOverview['target']) }} target @else No active goal targets @endif</p>
+                @if($savingsOverview['target'] > 0)
+                    <progress class="progress progress-info mt-1.5 h-1.5 w-full" value="{{ $goalProgress }}" max="100" aria-label="Savings goal progress: {{ $goalProgress }} percent of target"></progress>
+                @endif
+            </div>
             <div class="min-w-0 rounded-sm border border-l-2 border-base-300 border-l-warning/70 bg-warning/5 p-3"><dt class="flex items-center gap-2 text-[11px] opacity-75"><span class="grid size-7 shrink-0 place-items-center rounded-sm bg-warning/10 text-warning"><x-lucide-repeat-2 class="size-4" aria-hidden="true" /></span>Monthly subscriptions</dt><dd class="mt-1 break-words text-base font-semibold tabular-nums">{{ $money($monthlyCostCents) }}</dd><p class="mt-0.5 text-[10px] opacity-55">{{ $activeCount }} active recurring {{ $activeCount === 1 ? 'payment' : 'payments' }}</p></div>
         </dl>
         <p class="mt-2 text-[10px] leading-snug opacity-55">Unreserved cash is based on assets you've classified as liquid, not a live bank balance. Budget totals stay separate because shared budgets can overlap.</p>
@@ -50,113 +76,7 @@
             <a class="btn btn-outline btn-xs" href="{{ route('budgets.index') }}">Create a budget period</a>
         @endif
     </section>
-    <div class="grid items-stretch gap-3 lg:grid-cols-2">
-        @include('dashboard.monthly-budget')
-        <section class="flex min-w-0 flex-col overflow-hidden rounded-sm border border-base-300 bg-base-100 p-3 sm:p-4" aria-labelledby="dashboard-cash-flow-title">
-            <header class="flex flex-wrap items-center justify-between gap-2">
-                <div class="min-w-0">
-                    <h2 id="dashboard-cash-flow-title" class="flex items-center gap-2 text-sm font-semibold"><span class="grid size-6 shrink-0 place-items-center rounded-sm bg-info/10 text-info"><x-lucide-arrow-left-right class="size-3.5" aria-hidden="true" /></span>Cash-flow outlook</h2>
-                    <p class="mt-0.5 pl-8 text-[10px] opacity-60">Next {{ $liquidityOverview['horizon'] }} days · expected, not confirmed</p>
-                </div>
-                <a class="btn btn-ghost btn-xs shrink-0 text-primary" href="{{ route('net-worth.index', ['tab' => 'liquidity']) }}">Plan cash flow <x-lucide-arrow-up-right class="size-3.5" aria-hidden="true" /></a>
-            </header>
-            <div class="mt-3 grid grid-cols-3 gap-1.5 sm:gap-2" aria-label="Cash-flow summary">
-                <div class="min-w-0 rounded-sm bg-base-200/50 px-1.5 py-2 sm:px-2.5">
-                    <p class="text-[9px] opacity-60 sm:text-[10px]">Forecast low point</p>
-                    <p @class(['mt-0.5 break-words text-xs font-semibold tabular-nums sm:text-sm', 'text-error' => $liquidityOverview['lowest']['low'] < 0, 'text-success' => $liquidityOverview['lowest']['low'] >= 0])>{{ $currencyPrefix }}{{ number_format($liquidityOverview['lowest']['low'] / 100, 2) }}</p>
-                    <p class="mt-0.5 text-[9px] opacity-55 sm:text-[10px]">Around {{ \Carbon\CarbonImmutable::parse($liquidityOverview['lowest']['date'])->format('j M') }}</p>
-                </div>
-                <div class="min-w-0 rounded-sm bg-base-200/50 px-1.5 py-2 sm:px-2.5">
-                    <p class="text-[9px] opacity-60 sm:text-[10px]">Period expected</p>
-                    <p class="mt-0.5 break-words text-xs font-semibold tabular-nums sm:text-sm">{{ $currencyPrefix }}{{ number_format($periodIncomes->sum('expected_cents') / 100, 2) }}</p>
-                </div>
-                <div class="min-w-0 rounded-sm bg-base-200/50 px-1.5 py-2 sm:px-2.5">
-                    <p class="text-[9px] opacity-60 sm:text-[10px]">Period received</p>
-                    <p class="mt-0.5 break-words text-xs font-semibold tabular-nums text-success sm:text-sm">{{ $currencyPrefix }}{{ number_format($periodIncomes->sum('received_cents') / 100, 2) }}</p>
-                </div>
-            </div>
-            <section class="mt-3 min-w-0" aria-labelledby="dashboard-period-income-title">
-                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-base-300/70 pb-1.5">
-                    <h3 id="dashboard-period-income-title" class="text-xs font-medium">Income by budget period</h3>
-                    @if($dashboardPeriod)<span class="max-w-1/2 break-words text-right text-[10px] opacity-60">{{ $dashboardPeriod->budget->name }} · {{ $dashboardPeriod->name }}</span>@endif
-                </div>
-                @if($dashboardPeriod)
-                    <div class="mt-1 max-h-36 divide-y divide-base-300/70 overflow-y-auto" tabindex="0" role="region" aria-label="Income entries for selected budget period">
-                        @forelse($periodIncomes as $income)
-                            <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5">
-                                <div class="min-w-0 flex-1">
-                                    <p class="break-words text-xs font-medium">{{ $income->name }}</p>
-                                    <p class="mt-0.5 text-[10px] opacity-60">Expected{{ $income->expected_date ? ' · '.$income->expected_date->format('j M') : '' }}
-                                        <span class="mx-1" aria-hidden="true">·</span>
-                                        Received{{ $income->received_date ? ' · '.$income->received_date->format('j M') : ' · not yet' }}
-                                    </p>
-                                </div>
-                                <div class="flex shrink-0 gap-3 text-right text-[10px] tabular-nums">
-                                    <span><span class="block text-[9px] opacity-55">Expected</span><span>{{ $currencyPrefix }}{{ number_format($income->expected_cents / 100, 2) }}</span></span>
-                                    <span><span class="block text-[9px] opacity-55">Received</span><span class="text-success">{{ $currencyPrefix }}{{ number_format($income->received_cents / 100, 2) }}</span></span>
-                                </div>
-                            </div>
-                        @empty
-                            <p class="py-2 text-xs opacity-65">No income entries are recorded for this budget period.</p>
-                        @endforelse
-                    </div>
-                @else
-                    <p class="mt-2 text-xs opacity-65">Create a budget period to review its income entries here.</p>
-                @endif
-            </section>
-            <section class="mt-3 min-w-0" aria-labelledby="dashboard-upcoming-events-title">
-                <div class="flex items-center justify-between gap-2 border-b border-base-300/70 pb-1.5">
-                    <h3 id="dashboard-upcoming-events-title" class="flex items-center gap-1.5 text-xs font-medium opacity-80"><x-lucide-calendar-clock class="size-3.5 text-primary" aria-hidden="true" />Upcoming events</h3>
-                    <span class="text-[10px] opacity-55">Next {{ $liquidityOverview['horizon'] }} days</span>
-                </div>
-                <div class="mt-1 max-h-44 divide-y divide-base-300/70 overflow-y-auto" tabindex="0" role="region" aria-label="Upcoming cash-flow events">
-                @forelse($liquidityOverview['events'] as $event)
-                    @php
-                        $eventDate = \Carbon\CarbonImmutable::parse($event['date']);
-                        $eventClasses = 'flex items-center gap-2 px-1.5 py-1.5 hover:bg-base-200/50';
-                    @endphp
-                    @if($event['url'])
-                        <a class="{{ $eventClasses }}" href="{{ $event['url'] }}">
-                    @else
-                        <div class="{{ $eventClasses }}">
-                    @endif
-                        <time class="flex w-9 shrink-0 flex-col items-center rounded-sm {{ $event['kind'] === 'income' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning' }} py-0.5" datetime="{{ $eventDate->toDateString() }}">
-                            <span class="text-[8px] uppercase opacity-70">{{ $eventDate->format('M') }}</span>
-                            <span class="text-xs font-semibold leading-tight tabular-nums">{{ $eventDate->format('d') }}</span>
-                        </time>
-                        <span class="min-w-0 flex-1">
-                            <span class="block break-words text-[11px] font-medium">{{ $event['name'] }}</span>
-                            <span class="block text-[9px] {{ $event['kind'] === 'income' ? 'text-success' : 'opacity-55' }}">{{ $event['kind'] === 'income' ? 'Expected income' : 'Forecast outflow' }}</span>
-                        </span>
-                        <span class="shrink-0 text-right text-[11px] font-semibold tabular-nums {{ $event['kind'] === 'income' ? 'text-success' : 'text-warning' }}">{{ $event['kind'] === 'income' ? '+' : '−' }}{{ $money($event['amount']) }}</span>
-                    @if($event['url'])
-                        </a>
-                    @else
-                        </div>
-                    @endif
-                @empty
-                    <p class="rounded-sm bg-base-200/40 px-2.5 py-2 text-[11px] opacity-65">No upcoming income or spending is scheduled in this forecast window.</p>
-                @endforelse
-                </div>
-            </section>
-            <p class="mt-auto pt-2 text-[9px] leading-snug opacity-50">Forecasts use recorded schedules, selected budget assumptions and classified cash; they are estimates, not confirmed payments.</p>
-        </section>
-    </div>
-    <div class="rounded-sm border border-base-300 bg-base-100 p-3 sm:p-4">
-        @include('dashboard.budgets')
-    </div>
-    <section class="rounded-sm border border-base-300 bg-base-100" aria-labelledby="attention-title">
-        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-base-300 px-3 py-2"><div><h2 id="attention-title" class="flex items-center gap-2 text-sm font-semibold">@if($attentionItems->isEmpty())<x-lucide-badge-check class="size-4 text-success" aria-hidden="true" />@else<x-lucide-circle-alert class="size-4 text-warning" aria-hidden="true" />@endif Needs attention</h2><p class="text-[10px] opacity-60">Highest-priority issues from your current financial records.</p></div><span class="badge badge-sm {{ $attentionItems->isEmpty() ? 'badge-success' : 'badge-warning' }}">{{ $attentionItems->isEmpty() ? 'All clear' : $attentionItems->count().' to review' }}</span></div>
-        @if($attentionItems->isNotEmpty())
-            <ul class="divide-y divide-base-300">
-                @foreach($attentionItems as $item)
-                    <li><a class="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 hover:bg-base-200/40" href="{{ $item['url'] }}"><span class="min-w-0 flex-1"><span class="block text-xs font-semibold {{ $item['tone'] === 'error' ? 'text-error' : 'text-warning' }}">{{ $item['title'] }}@if($item['amount'] !== null)<span class="ml-1 tabular-nums">{{ $money($item['amount']) }}</span>@endif</span><span class="mt-0.5 block text-[11px] opacity-65">{{ $item['detail'] }}</span></span><span class="link link-primary shrink-0 text-xs">{{ $item['action'] }} <span aria-hidden="true">→</span></span></a></li>
-                @endforeach
-            </ul>
-        @else
-            <p class="px-3 py-3 text-xs opacity-65">No urgent issues found in the records we track. Check your upcoming payments before making spending decisions.</p>
-        @endif
-    </section>
+    @include('dashboard.budgets')
     <details class="group rounded-sm border border-base-300 bg-base-100" x-ref="dashboardDetails">
         <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><span class="block text-sm font-semibold">Explore detailed views</span><span class="mt-0.5 block text-[11px] opacity-60">Budget breakdowns, histories, forecasts and charts</span></span><x-lucide-chevron-down class="size-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" /></summary>
         <div class="space-y-3 border-t border-base-300 p-3">

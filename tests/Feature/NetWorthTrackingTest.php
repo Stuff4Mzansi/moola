@@ -111,7 +111,12 @@ test('net worth includes debt principal and never adds savings goals as extra as
     $data = app(NetWorthWorkspace::class)->build($this->owner);
     expect($data['assetTotal'])->toBe(200000)->and($data['debtTotal'])->toBe(91000)->and($data['netWorth'])->toBe(109000);
     $this->get(route('net-worth.index'))->assertOk()->assertSee('R 1,090.00')->assertSee('Savings goals earmark money');
-    $this->get(route('dashboard'))->assertOk()->assertViewHas('netWorthOverview', fn (array $data): bool => $data['netWorth'] === 109000);
+    $this->get(route('dashboard'))->assertOk()
+        ->assertSee('Net Worth')
+        ->assertSee('R 1,090.00')
+        ->assertSee('Assets R 2,000.00 · Debts and Liabilities R 910.00')
+        ->assertSee(route('net-worth.index'), false)
+        ->assertViewHas('netWorthOverview', fn (array $data): bool => $data['netWorth'] === 109000);
 });
 
 test('negative net worth zero asset balances and stale values have actionable summaries', function () {
@@ -188,14 +193,66 @@ test('valuation ids cannot access another asset even if both assets are owned', 
     $this->post(route('net-worth.values.restore', [$this->asset, $otherValue]))->assertNotFound();
 });
 
-test('snapshots provide chart data and comparison with the current live position', function () {
+test('snapshots provide chart data and compare the latest snapshot with the previous one', function () {
     $this->post(route('net-worth.snapshots.store'), ['date' => '2026-10-01'])->assertRedirect();
     $this->post(route('net-worth.values.store', $this->asset), assetValueData())->assertRedirect();
+    $this->post(route('net-worth.snapshots.store'), ['date' => '2026-10-04'])->assertRedirect();
     $data = app(NetWorthWorkspace::class)->build($this->owner);
-    expect($data['change'])->toBe(100000)->and($data['latest']->date->toDateString())->toBe('2026-10-01');
+    expect($data['change'])->toBe(100000)
+        ->and($data['latest']->date->toDateString())->toBe('2026-10-04')
+        ->and($data['previous']->date->toDateString())->toBe('2026-10-01');
     $this->get(route('net-worth.index'))->assertOk()->assertSee('data-worth-data', false)->assertSee('Last 6 snapshots')->assertSee('higher');
-    $this->get(route('dashboard'))->assertOk()->assertSee('dashboard-net-worth', false)->assertSee('higher');
+    $this->get(route('dashboard'))->assertOk()
+        ->assertSee('dashboard-net-worth', false)
+        ->assertSee('Increased by R 1,000.00')
+        ->assertSee('since 01 Oct 2026')
+        ->assertSee('higher');
     $this->get(route('net-worth.index', ['tab' => 'history']))->assertOk()->assertSee('Asset valuation history', false);
+});
+
+test('dashboard net worth tile indicates decreases between snapshots', function () {
+    $this->post(route('net-worth.snapshots.store'), ['date' => '2026-10-01'])->assertRedirect();
+    $this->post(route('net-worth.values.store', $this->asset), assetValueData(['amount' => '1000']))->assertRedirect();
+    $this->post(route('net-worth.snapshots.store'), ['date' => '2026-10-04'])->assertRedirect();
+
+    expect(app(NetWorthWorkspace::class)->build($this->owner)['change'])->toBe(-100000);
+
+    $this->get(route('dashboard'))->assertOk()
+        ->assertSee('Decreased by R 1,000.00')
+        ->assertSee('since 01 Oct 2026');
+});
+
+test('net worth change compares snapshots in creation order rather than snapshot date order', function () {
+    NetWorthSnapshot::factory()->create([
+        'user_id' => $this->owner->id,
+        'date' => '2026-10-03',
+        'net_worth_cents' => 100000,
+        'created_at' => '2026-10-03 09:00:00',
+    ]);
+    NetWorthSnapshot::factory()->create([
+        'user_id' => $this->owner->id,
+        'date' => '2026-10-01',
+        'net_worth_cents' => 250000,
+        'created_at' => '2026-10-04 09:00:00',
+    ]);
+
+    $data = app(NetWorthWorkspace::class)->build($this->owner);
+
+    expect($data['change'])->toBe(150000)
+        ->and($data['latest']->date->toDateString())->toBe('2026-10-01')
+        ->and($data['previous']->date->toDateString())->toBe('2026-10-03')
+        ->and($data['snapshots']->first()->date->toDateString())->toBe('2026-10-01');
+});
+
+test('net worth change is unavailable until there are two snapshots', function () {
+    NetWorthSnapshot::factory()->create(['user_id' => $this->owner->id]);
+
+    expect(app(NetWorthWorkspace::class)->build($this->owner)['change'])->toBeNull();
+
+    $this->get(route('dashboard'))->assertOk()
+        ->assertDontSee('Increased by')
+        ->assertDontSee('Decreased by')
+        ->assertDontSee('No change since');
 });
 
 test('asset metadata can be edited without resubmitting a value and removed assets reject value changes', function () {

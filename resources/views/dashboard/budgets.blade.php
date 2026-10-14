@@ -23,13 +23,37 @@
                             <div class="min-w-0"><p class="text-xs opacity-65">{{ $totals['after_commitments'] < 0 ? 'Forecast shortfall' : 'Room after scheduled expenses' }}</p><p class="mt-0.5 break-words text-xl font-bold tracking-tight tabular-nums {{ $totals['after_commitments'] < 0 ? 'text-error' : '' }}">{{ $currencyPrefix }}{{ number_format(abs($totals['after_commitments']) / 100, 2) }}</p><p class="mt-1 text-[10px] opacity-60">Income less recorded spending and unpaid forecasts.</p></div>
                             <div class="shrink-0 text-center"><div class="radial-progress {{ $ringClass }}" style="--value: {{ $ringProgress }}; --size: 4rem; --thickness: 4px;" role="img" aria-label="{{ $card['spentPercent'] === null ? 'No category allocations yet' : $card['spentPercent'].' percent of category allocations spent' }}"><span class="text-xs font-bold text-base-content">{{ $card['spentPercent'] === null ? '-' : number_format($card['spentPercent'], 0).'%' }}</span></div><p class="mt-1 text-[10px] opacity-60">of plan spent</p></div>
                         </div>
-                        <div class="mt-3 grid grid-cols-3 gap-2 border-t border-base-300 pt-2">
+                        <div class="mt-3 grid grid-cols-2 gap-x-2 gap-y-2 border-t border-base-300 pt-2 sm:grid-cols-4">
                             <div class="min-w-0"><p class="text-[10px] opacity-60">Recorded spending</p><p class="mt-0.5 break-words text-xs font-semibold tabular-nums">{{ $currencyPrefix }}{{ number_format($totals['spent'] / 100, 2) }}</p></div>
                             <div class="min-w-0"><p class="text-[10px] opacity-60">Unpaid forecasts</p><p class="mt-0.5 break-words text-xs font-semibold tabular-nums">{{ $currencyPrefix }}{{ number_format($totals['upcoming'] / 100, 2) }}</p></div>
                             <div class="min-w-0"><p class="text-[10px] opacity-60">Expected income</p><p class="mt-0.5 break-words text-xs font-semibold tabular-nums">{{ $currencyPrefix }}{{ number_format($totals['expected'] / 100, 2) }}</p></div>
+                            <div class="min-w-0"><p class="text-[10px] opacity-60">Income received</p><p class="mt-0.5 break-words text-xs font-semibold tabular-nums text-success">{{ $currencyPrefix }}{{ number_format($totals['received'] / 100, 2) }}</p></div>
                         </div>
+                        <details class="mt-3 rounded-sm border border-base-300">
+                            <summary class="flex cursor-pointer flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 py-1.5 text-[10px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+                                <span class="font-medium">Income for this period · {{ $card['incomes']->count() }} {{ str('entry')->plural($card['incomes']->count()) }}</span>
+                                <span class="tabular-nums opacity-65">Expected {{ $currencyPrefix }}{{ number_format($totals['expected'] / 100, 2) }} · Received {{ $currencyPrefix }}{{ number_format($totals['received'] / 100, 2) }}</span>
+                            </summary>
+                            <div class="max-h-36 divide-y divide-base-300/70 overflow-y-auto px-2" tabindex="0" role="region" aria-label="Income entries for {{ $card['budget']->name }} {{ $card['period']->name }}">
+                                @forelse($card['incomes'] as $income)
+                                    <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5">
+                                        <div class="min-w-0 flex-1">
+                                            <p class="break-words text-xs font-medium">{{ $income->name }}</p>
+                                            <p class="mt-0.5 text-[10px] opacity-60">Expected{{ $income->expected_date ? ' · '.$income->expected_date->format('j M') : '' }} <span class="mx-1" aria-hidden="true">·</span> Received{{ $income->received_date ? ' · '.$income->received_date->format('j M') : ' · not yet' }}</p>
+                                        </div>
+                                        <div class="flex shrink-0 gap-3 text-right text-[10px] tabular-nums">
+                                            <span><span class="block text-[9px] opacity-55">Expected</span><span>{{ $currencyPrefix }}{{ number_format($income->expected_cents / 100, 2) }}</span></span>
+                                            <span><span class="block text-[9px] opacity-55">Received</span><span class="text-success">{{ $currencyPrefix }}{{ number_format($income->received_cents / 100, 2) }}</span></span>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <p class="py-2 text-xs opacity-65">No income entries are recorded for this budget period.</p>
+                                @endforelse
+                            </div>
+                        </details>
                         <div class="mt-4 flex flex-wrap justify-between gap-2 text-xs opacity-70"><span>@if($card['isPast'])Period ended @elseif($card['isFuture'])Starts {{ $card['period']->start_date->format('j M Y') }}@else{{ $card['daysLeft'] }} {{ $card['daysLeft'] === 1 ? 'day' : 'days' }} left, including today @endif</span>@if(! $card['isPast'] && ! $card['isFuture'] && $totals['expected'] > 0 && $totals['after_commitments'] >= 0)<span>Forecast room: {{ $currencyPrefix }}{{ number_format($card['dailyRoom'] / 100, 2) }}/day</span>@endif</div>
                         <progress class="progress progress-primary mt-2 h-1 w-full opacity-40" value="{{ $card['elapsedPercent'] }}" max="100" aria-label="Budget period elapsed"></progress>
+                        @include('dashboard.budget-pace')
                     </div>
                     <div @class(['min-w-0 space-y-3 p-3', 'xl:border-l xl:border-base-300' => $fillsRow])>
                         @if($card['rows']->isNotEmpty())
@@ -47,16 +71,27 @@
                                 </div><p class="mt-1.5 text-[10px] opacity-50">Solid: recorded · pale: unpaid forecast. Top three by spending and forecasts.</p>
                             </div>
                         @endif
-                        <div class="rounded-sm border border-base-300 p-2.5"><div class="flex items-center justify-between gap-2"><h4 class="flex items-center gap-1.5 text-xs font-semibold"><x-lucide-calendar-days class="size-3.5 text-primary" aria-hidden="true" />Next 7 days</h4><span class="text-xs font-bold tabular-nums">{{ $currencyPrefix }}{{ number_format($card['dueSoonCents'] / 100, 2) }}</span></div><p class="mt-1 text-[10px] opacity-60">{{ $card['dueSoonCount'] }} scheduled {{ $card['dueSoonCount'] === 1 ? 'payment' : 'payments' }} still to record @if($card['overdueCount'] > 0) &middot; {{ $card['overdueCount'] }} earlier {{ $card['overdueCount'] === 1 ? 'payment' : 'payments' }} not recorded @endif.</p>
-                            <div class="mt-2 space-y-1">
-                                @forelse($card['payments'] as $payment)
-                                    <a class="flex items-center justify-between gap-3 rounded-sm bg-base-200/50 px-2 py-1.5 text-[10px] transition hover:bg-base-200" href="{{ route('budgets.index', ['period' => $card['period']->id, 'tab' => $payment['tab']]) }}"><span class="min-w-0"><span class="block truncate font-medium">{{ $payment['name'] }}</span><span class="{{ $payment['date']->lt(today()) ? 'text-warning' : 'opacity-60' }}">{{ $payment['date']->format('d M') }}{{ $payment['date']->lt(today()) ? ' - Not recorded' : '' }}</span></span><span class="shrink-0 font-semibold tabular-nums">{{ $currencyPrefix }}{{ number_format($payment['amount'] / 100, 2) }}</span></a>
+                        <section class="rounded-sm border border-base-300 p-2.5" aria-label="Expected budget events in the next seven days">
+                            <h4 class="flex items-center gap-1.5 text-xs font-semibold"><x-lucide-calendar-days class="size-3.5 text-primary" aria-hidden="true" />Next 7 days</h4>
+                            <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px]">
+                                <span class="text-success">Income +{{ $currencyPrefix }}{{ number_format($card['sevenDayIncomeCents'] / 100, 2) }}</span>
+                                <span class="text-warning">Payments −{{ $currencyPrefix }}{{ number_format($card['dueSoonCents'] / 100, 2) }}</span>
+                                @if($card['overdueCount'] > 0)<span class="text-warning">{{ $card['overdueCount'] }} earlier {{ $card['overdueCount'] === 1 ? 'payment' : 'payments' }} not recorded</span>@endif
+                            </div>
+                            <div class="mt-2 max-h-40 divide-y divide-base-300/70 overflow-y-auto overscroll-contain" tabindex="0" role="region" aria-label="Income and scheduled payments for the next seven days">
+                                @forelse($card['sevenDayEvents'] as $event)
+                                    <a class="flex items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-[10px] transition hover:bg-base-200/60 focus-visible:outline-2 focus-visible:outline-primary" href="{{ route('budgets.index', ['period' => $card['period']->id, 'tab' => $event['tab']]) }}">
+                                        <span class="min-w-0">
+                                            <span class="block break-words font-medium">{{ $event['name'] }}</span>
+                                            <span class="block {{ $event['kind'] === 'income' ? 'text-success' : 'opacity-60' }}">{{ $event['date']->format('d M') }} · {{ $event['kind'] === 'income' ? 'Expected income' : 'Scheduled payment' }}</span>
+                                        </span>
+                                        <span class="shrink-0 font-semibold tabular-nums {{ $event['kind'] === 'income' ? 'text-success' : 'text-warning' }}">{{ $event['kind'] === 'income' ? '+' : '−' }}{{ $currencyPrefix }}{{ number_format($event['amount'] / 100, 2) }}</span>
+                                    </a>
                                 @empty
-                                    <p class="text-xs opacity-60">No unpaid scheduled expenses due in this window.</p>
+                                    <p class="px-2 py-2 text-xs opacity-60">No expected income or scheduled payments in this period during the next seven days.</p>
                                 @endforelse
                             </div>
-                            @if($card['dueSoonCount'] + $card['overdueCount'] > 3)<p class="mt-2 text-xs opacity-50">Showing the earliest three. Open the budget for all scheduled expenses.</p>@endif
-                        </div>
+                        </section>
                         <div class="space-y-3">
                             @foreach($card['insights'] as $insight)
                                 <div class="flex items-start gap-2 rounded-sm {{ $insightClasses[$insight['tone']][0] }} p-2.5"><x-lucide-lightbulb class="mt-0.5 size-3.5 shrink-0 {{ $insightClasses[$insight['tone']][1] }}" aria-hidden="true" /><div class="min-w-0"><p class="text-xs font-semibold">{{ $insight['title'] }}@if($insight['amount'] !== null)<span class="ml-1 {{ $insightClasses[$insight['tone']][1] }}">{{ $currencyPrefix }}{{ number_format($insight['amount'] / 100, 2) }}</span>@endif</p><p class="mt-0.5 text-[10px] opacity-65">{{ $insight['detail'] }}</p><a class="link link-primary mt-1 inline-flex items-center gap-1 text-[10px] font-semibold" href="{{ route('budgets.index', ['period' => $card['period']->id, 'tab' => $insight['tab']]) }}">{{ $insight['action'] }} <x-lucide-arrow-right class="size-3" aria-hidden="true" /></a></div></div>

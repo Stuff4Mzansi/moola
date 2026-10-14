@@ -73,68 +73,7 @@ class DashboardController extends Controller
                 ?? $budgetDashboard->forPeriod($request->user(), $dashboardPeriod);
         $liquidityOverview = $liquidityAnalytics->build($request->user(), [], $netWorthOverview, $dashboardPeriod);
         $dashboardBudgetOverview = [...$budgetOverview, 'cards' => $dashboardBudget === null ? collect() : collect([$dashboardBudget])];
-        $periodIncomes = $dashboardPeriod?->incomes()->orderBy('name')->get() ?? collect();
-
         $savingsOverview = $savingsWorkspace->build($request->user());
-        $attentionItems = collect();
-
-        foreach ($dashboardBudgetOverview['cards'] as $card) {
-            foreach ($card['insights'] as $insight) {
-                if (! in_array($insight['tone'], ['error', 'warning'], true)) {
-                    continue;
-                }
-
-                $attentionItems->push([
-                    'tone' => $insight['tone'],
-                    'title' => $insight['title'],
-                    'detail' => $insight['detail'],
-                    'amount' => $insight['amount'],
-                    'action' => $insight['action'],
-                    'url' => route('budgets.index', ['period' => $card['period']->id, 'tab' => $insight['tab']]),
-                ]);
-            }
-        }
-
-        if ($debtOverview !== null) {
-            $unrecordedDebts = $debtOverview['rows']->where('unrecorded', true);
-            if ($unrecordedDebts->isNotEmpty()) {
-                $attentionItems->push([
-                    'tone' => 'warning',
-                    'title' => $unrecordedDebts->count().' debt '.str('payment')->plural($unrecordedDebts->count()).' need review',
-                    'detail' => 'A scheduled payment date has passed without a recorded payment.',
-                    'amount' => null,
-                    'action' => 'Review payments',
-                    'url' => route('debts.index', ['tab' => 'payments']),
-                ]);
-            }
-        }
-
-        if ($netWorthOverview['stale'] > 0) {
-            $attentionItems->push([
-                'tone' => 'warning',
-                'title' => $netWorthOverview['stale'].' asset '.str('valuation')->plural($netWorthOverview['stale']).' may be out of date',
-                'detail' => 'Refresh older values to keep your net worth estimate useful.',
-                'amount' => null,
-                'action' => 'Review assets',
-                'url' => route('net-worth.index', ['tab' => 'assets']),
-            ]);
-        }
-
-        if ($liquidityOverview['cashGap'] > 0) {
-            $attentionItems->push([
-                'tone' => 'error',
-                'title' => 'Forecast cash gap',
-                'detail' => 'Your current cash-flow assumptions show a projected low point. Review timing and upcoming payments.',
-                'amount' => $liquidityOverview['cashGap'],
-                'action' => 'Review cash flow',
-                'url' => route('net-worth.index', ['tab' => 'liquidity']),
-            ]);
-        }
-
-        $attentionItems = $attentionItems
-            ->sortBy(fn (array $item): int => $item['tone'] === 'error' ? 0 : 1)
-            ->take(5)
-            ->values();
 
         return view('dashboard.index', [
             'dashboardLayout' => app(DashboardLayout::class)->build($request->user()),
@@ -144,7 +83,6 @@ class DashboardController extends Controller
             'dashboardBudgetOptions' => $dashboardBudgetOptions,
             'dashboardPeriod' => $dashboardPeriod,
             'activeBudgetCount' => $budgetOverview['cards']->count(),
-            'periodIncomes' => $periodIncomes,
             'netWorthOverview' => $netWorthOverview,
             'savingsOverview' => $savingsOverview,
             'debtOverview' => $debtOverview,
@@ -158,7 +96,6 @@ class DashboardController extends Controller
             'monthlyCostCents' => (int) round($analytics['annualCostCents'] / 12),
             'renewals' => $renewals,
             'hasSubscriptions' => $subscriptions->isNotEmpty(),
-            'attentionItems' => $attentionItems,
         ]);
     }
 
