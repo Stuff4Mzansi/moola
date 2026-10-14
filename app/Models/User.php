@@ -31,6 +31,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => UserRole::class,
             'dashboard_layout' => 'array',
+            'dashboard_budget_period_id' => 'integer',
         ];
     }
 

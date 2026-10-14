@@ -46,8 +46,7 @@ function linePath(points, key, geometry) {
 }
 
 function renderPace(section, budgets) {
-    const selector = section.querySelector('[data-pace-budget]');
-    const budget = budgets.find((item) => String(item.id) === selector.value) ?? budgets[0];
+    const budget = budgets[0];
     const host = section.querySelector('[data-pace-chart]');
     const geometry = dashboardPaceGeometry(budget.points, budget.planned, budget.received, host.clientWidth || 680);
     const { width, left, right, top, bottom, maximum, x, y } = geometry;
@@ -80,8 +79,7 @@ function renderPace(section, budgets) {
 }
 
 function renderMix(section, budgets) {
-    const selector = section.querySelector('[data-mix-budget]');
-    const budget = budgets.find((item) => String(item.id) === selector.value) ?? budgets[0];
+    const budget = budgets[0];
     const host = section.querySelector('[data-mix-chart]');
     const legend = section.querySelector('[data-mix-legend]');
     const empty = section.querySelector('[data-mix-empty]');
@@ -125,7 +123,6 @@ function renderMix(section, budgets) {
 export function registerDashboardCharts(Alpine) {
     Alpine.data('dashboardPaceChart', () => ({
         budgets: [],
-        budgetId: '',
         observer: null,
 
         init() {
@@ -134,8 +131,6 @@ export function registerDashboardCharts(Alpine) {
                 return;
             }
             this.budgets = JSON.parse(data.textContent);
-            const selector = this.$el.querySelector('[data-pace-budget]');
-            this.budgetId = selector.value || String(this.budgets[0]?.id ?? '');
             this.$nextTick(() => {
                 this.render();
                 const host = this.$el.querySelector('[data-pace-chart]');
@@ -150,15 +145,8 @@ export function registerDashboardCharts(Alpine) {
             this.observer?.disconnect();
         },
 
-        selectBudget(event) {
-            this.budgetId = event.target.value;
-            this.render();
-        },
-
         render() {
             if (this.budgets.length) {
-                const selector = this.$el.querySelector('[data-pace-budget]');
-                selector.value = this.budgetId;
                 renderPace(this.$el, this.budgets);
             }
         },
@@ -166,7 +154,6 @@ export function registerDashboardCharts(Alpine) {
 
     Alpine.data('dashboardMixChart', () => ({
         budgets: [],
-        budgetId: '',
 
         init() {
             const data = this.$el.querySelector('[data-mix-data]');
@@ -174,20 +161,11 @@ export function registerDashboardCharts(Alpine) {
                 return;
             }
             this.budgets = JSON.parse(data.textContent);
-            const selector = this.$el.querySelector('[data-mix-budget]');
-            this.budgetId = selector.value || String(this.budgets[0]?.id ?? '');
             this.$nextTick(() => this.render());
-        },
-
-        selectBudget(event) {
-            this.budgetId = event.target.value;
-            this.render();
         },
 
         render() {
             if (this.budgets.length) {
-                const selector = this.$el.querySelector('[data-mix-budget]');
-                selector.value = this.budgetId;
                 renderMix(this.$el, this.budgets);
             }
         },

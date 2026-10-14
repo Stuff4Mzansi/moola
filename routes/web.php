@@ -30,6 +30,7 @@ Route::middleware(EnsureAdministratorExists::class)->group(function (): void {
 
     Route::middleware('auth')->group(function (): void {
         Route::get('/', DashboardController::class)->name('dashboard');
+        Route::post('/dashboard/budget-period', [DashboardController::class, 'updateBudgetPeriod'])->name('dashboard.budget-period.update');
         Route::put('/dashboard/layout', DashboardLayoutController::class)->name('dashboard.layout.update');
         Route::get('/payment-calendar', PaymentCalendarController::class)->name('payment-calendar.index');
         Route::get('/planning-scenarios', [PlanningScenarioController::class, 'index'])->name('planning-scenarios.index');

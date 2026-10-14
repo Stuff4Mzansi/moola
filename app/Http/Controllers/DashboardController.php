@@ -8,13 +8,18 @@ use App\DashboardLayout;
 use App\DebtPayoff;
 use App\DebtWorkspace;
 use App\LiquidityAnalytics;
+use App\Models\Budget;
+use App\Models\BudgetPeriod;
 use App\Models\Subscription;
 use App\NetWorthWorkspace;
 use App\SavingsWorkspace;
 use App\SubscriptionAnalytics;
 use App\SubscriptionStatus;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -44,23 +49,36 @@ class DashboardController extends Controller
         }
 
         $netWorthOverview = $netWorthWorkspace->build($request->user(), false);
-        $liquidityOverview = $liquidityAnalytics->build($request->user(), [], $netWorthOverview);
         $budgetOverview = $budgetDashboard->build($request->user());
-        $dashboardBudget = $budgetOverview['cards']->first(
-            fn (array $card): bool => (string) $card['period']->id === (string) $request->query('budget')
-        );
-        if ($dashboardBudget === null) {
-            $calendarMonthBudget = $budgetOverview['cards']->first(fn (array $card): bool => $card['budget']->scope === 'personal'
+        $dashboardBudgetOptions = Budget::visibleTo($request->user())
+            ->with(['periods' => fn (HasMany $query): HasMany => $query->orderByDesc('start_date')])
+            ->orderBy('name')
+            ->get();
+        $availablePeriods = $dashboardBudgetOptions->flatMap->periods;
+        $defaultDashboardBudget = $budgetOverview['cards']->first(
+            fn (array $card): bool => $card['budget']->scope === 'personal'
                 && $card['period']->start_date->isSameDay($today->startOfMonth())
-                && $card['period']->end_date->isSameDay($today->endOfMonth()));
-            $dashboardBudget = $calendarMonthBudget
-                ?? $budgetOverview['cards']->first(fn (array $card): bool => $card['budget']->scope === 'personal')
-                ?? $budgetOverview['cards']->first();
-        }
+                && $card['period']->end_date->isSameDay($today->endOfMonth())
+        ) ?? $budgetOverview['cards']->first(fn (array $card): bool => $card['budget']->scope === 'personal')
+            ?? $budgetOverview['cards']->first();
+        $defaultPeriod = $defaultDashboardBudget['period'] ?? $availablePeriods->first(
+            fn (BudgetPeriod $period): bool => $period->start_date->lte($today) && $period->end_date->gte($today)
+        ) ?? $availablePeriods->filter(fn (BudgetPeriod $period): bool => $period->start_date->gt($today))
+            ->sortBy('start_date')->first() ?? $availablePeriods->sortByDesc('end_date')->first();
+        $dashboardPeriod = $availablePeriods->firstWhere('id', $request->user()->dashboard_budget_period_id)
+            ?? $defaultPeriod;
+        $dashboardBudget = $dashboardPeriod === null
+            ? null
+            : $budgetOverview['cards']->first(fn (array $card): bool => $card['period']->is($dashboardPeriod))
+                ?? $budgetDashboard->forPeriod($request->user(), $dashboardPeriod);
+        $liquidityOverview = $liquidityAnalytics->build($request->user(), [], $netWorthOverview, $dashboardPeriod);
+        $dashboardBudgetOverview = [...$budgetOverview, 'cards' => $dashboardBudget === null ? collect() : collect([$dashboardBudget])];
+        $periodIncomes = $dashboardPeriod?->incomes()->orderBy('name')->get() ?? collect();
+
         $savingsOverview = $savingsWorkspace->build($request->user());
         $attentionItems = collect();
 
-        foreach ($budgetOverview['cards'] as $card) {
+        foreach ($dashboardBudgetOverview['cards'] as $card) {
             foreach ($card['insights'] as $insight) {
                 if (! in_array($insight['tone'], ['error', 'warning'], true)) {
                     continue;
@@ -123,13 +141,18 @@ class DashboardController extends Controller
             'dashboardDefaults' => app(DashboardLayout::class)->defaults($request->user()),
             'dashboardWidgets' => app(DashboardLayout::class)->widgets($request->user()),
             'liquidityOverview' => $liquidityOverview,
+            'dashboardBudgetOptions' => $dashboardBudgetOptions,
+            'dashboardPeriod' => $dashboardPeriod,
+            'activeBudgetCount' => $budgetOverview['cards']->count(),
+            'periodIncomes' => $periodIncomes,
             'netWorthOverview' => $netWorthOverview,
             'savingsOverview' => $savingsOverview,
             'debtOverview' => $debtOverview,
             'debtPlan' => $debtPlan,
             'budgetOverview' => $budgetOverview,
+            'dashboardBudgetOverview' => $dashboardBudgetOverview,
             'dashboardBudget' => $dashboardBudget,
-            'budgetTrends' => $budgetTrends->build($request->user()),
+            'budgetTrends' => $budgetTrends->build($request->user(), $dashboardPeriod?->budget, $dashboardPeriod),
             'analytics' => $analytics,
             'activeCount' => $analytics['statusCounts']['active'],
             'monthlyCostCents' => (int) round($analytics['annualCostCents'] / 12),
@@ -137,5 +160,17 @@ class DashboardController extends Controller
             'hasSubscriptions' => $subscriptions->isNotEmpty(),
             'attentionItems' => $attentionItems,
         ]);
+    }
+
+    public function updateBudgetPeriod(Request $request): RedirectResponse
+    {
+        $validated = $request->validate(['period_id' => ['required', 'integer', 'exists:budget_periods,id']]);
+        $period = BudgetPeriod::query()->findOrFail($validated['period_id']);
+        Gate::authorize('view', $period->budget);
+
+        $request->user()->dashboard_budget_period_id = $period->id;
+        $request->user()->save();
+
+        return redirect()->route('dashboard');
     }
 }

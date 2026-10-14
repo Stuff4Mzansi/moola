@@ -29,16 +29,7 @@ class BudgetDashboard
             if ($period === null) {
                 continue;
             }
-            $card = Cache::store('database')->lock('budget:'.$budget->id, 30)->block(5, function () use ($period, $today, $user): ?array {
-                return DB::transaction(function () use ($period, $today, $user): ?array {
-                    $current = BudgetPeriod::query()->find($period->id);
-                    if ($current === null || ! Gate::forUser($user)->allows('view', $current->budget)) {
-                        return null;
-                    }
-
-                    return $this->card($current, $today, $user);
-                });
-            });
+            $card = $this->forPeriod($user, $period, $today);
             if ($card !== null) {
                 $cards->push($card);
             }
@@ -50,15 +41,35 @@ class BudgetDashboard
         return ['cards' => $cards->sortByDesc('risk')->values(), 'totalBudgets' => $budgets->count(), 'nextPeriod' => $next, 'latestPeriod' => $latest];
     }
 
+    /** @return array<string, mixed>|null */
+    public function forPeriod(User $user, BudgetPeriod $period, ?CarbonImmutable $today = null): ?array
+    {
+        $today ??= CarbonImmutable::today();
+
+        return Cache::store('database')->lock('budget:'.$period->budget_id, 30)->block(5, function () use ($period, $today, $user): ?array {
+            return DB::transaction(function () use ($period, $today, $user): ?array {
+                $current = BudgetPeriod::query()->find($period->id);
+                if ($current === null || ! Gate::forUser($user)->allows('view', $current->budget)) {
+                    return null;
+                }
+
+                return $this->card($current, $today, $user);
+            });
+        });
+    }
+
     /** @return array<string, mixed> */
     private function card(BudgetPeriod $period, CarbonImmutable $today, User $user): array
     {
         $data = $this->workspace->data($period);
         $totals = $data['totals'];
         $canEdit = Gate::forUser($user)->allows('update', $period->budget);
-        $daysLeft = (int) $today->diffInDays($period->end_date) + 1;
         $periodDays = (int) $period->start_date->diffInDays($period->end_date) + 1;
-        $elapsedDays = $periodDays - $daysLeft + 1;
+        $isPast = $period->end_date->lt($today);
+        $isFuture = $period->start_date->gt($today);
+        $asOf = $today->min($period->end_date);
+        $daysLeft = $isPast ? 0 : ($isFuture ? $periodDays : (int) $asOf->diffInDays($period->end_date) + 1);
+        $elapsedDays = $isFuture ? 0 : min($periodDays, (int) $period->start_date->diffInDays($asOf) + 1);
         $url = fn (string $tab): string => route('budgets.index', ['period' => $period->id, 'tab' => $tab]);
         $payments = $data['commitments']->filter(fn (BudgetCommitment $charge): bool => $charge->is_current && $charge->transaction === null)->map(fn (BudgetCommitment $charge): array => ['name' => $charge->name, 'date' => $charge->scheduled_date, 'amount' => $charge->amount_cents, 'tab' => 'subscriptions']);
         $payments = $payments->concat($data['recurringCharges']->filter(fn (BudgetRecurringCharge $charge): bool => $charge->is_current && $charge->transaction === null)->map(fn (BudgetRecurringCharge $charge): array => ['name' => $charge->name, 'date' => $charge->scheduled_date, 'amount' => $charge->amount_cents, 'tab' => 'recurring']));
@@ -114,6 +125,6 @@ class BudgetDashboard
             $spendingMix->push(['name' => 'Uncategorised', 'amount' => $uncategorised]);
         }
 
-        return ['budget' => $period->budget, 'period' => $data['period'], 'totals' => $totals, 'dailyPace' => $dailyPace, 'spendingMix' => $spendingMix->all(), 'canEdit' => $canEdit, 'role' => $period->budget->memberRole($user), 'url' => $url('overview'), 'planUrl' => $url('plan'), 'daysLeft' => $daysLeft, 'elapsedDays' => $elapsedDays, 'periodDays' => $periodDays, 'forecastSpent' => (int) round($totals['spent'] * $periodDays / max(1, $elapsedDays)), 'elapsedPercent' => (int) round($elapsedDays / $periodDays * 100), 'spentPercent' => $totals['planned'] > 0 ? round($totals['spent'] / $totals['planned'] * 100, 1) : null, 'dailyRoom' => intdiv(max(0, $totals['after_commitments']), $daysLeft), 'dueSoonCents' => $dueSoon->sum('amount'), 'dueSoonCount' => $dueSoon->count(), 'overdueCount' => $overdue->count(), 'payments' => $payments->filter(fn (array $payment): bool => $payment['date']->lte($today->addDays(6)))->sortBy('date')->take(3)->values(), 'rows' => $highlightRows, 'topSpentRows' => $spendingMix->sortByDesc('amount')->take(6)->values(), 'grouped' => $data['groups']->isNotEmpty(), 'insights' => array_slice($insights, 0, 2), 'risk' => $risk];
+        return ['budget' => $period->budget, 'period' => $data['period'], 'totals' => $totals, 'dailyPace' => $dailyPace, 'spendingMix' => $spendingMix->all(), 'canEdit' => $canEdit, 'role' => $period->budget->memberRole($user), 'url' => $url('overview'), 'planUrl' => $url('plan'), 'daysLeft' => $daysLeft, 'elapsedDays' => $elapsedDays, 'periodDays' => $periodDays, 'isPast' => $isPast, 'isFuture' => $isFuture, 'forecastSpent' => $isPast ? $totals['spent'] : (int) round($totals['spent'] * $periodDays / max(1, $elapsedDays)), 'elapsedPercent' => $isPast ? 100 : (int) round($elapsedDays / $periodDays * 100), 'spentPercent' => $totals['planned'] > 0 ? round($totals['spent'] / $totals['planned'] * 100, 1) : null, 'dailyRoom' => $daysLeft > 0 ? intdiv(max(0, $totals['after_commitments']), $daysLeft) : 0, 'dueSoonCents' => $dueSoon->sum('amount'), 'dueSoonCount' => $dueSoon->count(), 'overdueCount' => $overdue->count(), 'payments' => $payments->filter(fn (array $payment): bool => $payment['date']->lte($today->addDays(6)))->sortBy('date')->take(3)->values(), 'rows' => $highlightRows, 'topSpentRows' => $spendingMix->sortByDesc('amount')->take(6)->values(), 'grouped' => $data['groups']->isNotEmpty(), 'insights' => array_slice($insights, 0, 2), 'risk' => $risk];
     }
 }

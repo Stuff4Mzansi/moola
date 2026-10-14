@@ -77,10 +77,11 @@ test('invited household budgets remain separate from personal history and revoke
     $personal = Budget::factory()->create(['user_id' => $member->id]);
     $own = BudgetPeriod::factory()->create(['budget_id' => $personal->id, 'start_date' => '2026-08-01', 'end_date' => '2026-08-31']);
     BudgetCategory::factory()->create(['budget_period_id' => $own->id, 'allocated_cents' => 30000]);
-    $trends = $this->actingAs($member)->get(route('dashboard'))->assertOk()->viewData('budgetTrends');
-    expect($trends)->toHaveCount(2);
-    $byBudget = collect($trends)->keyBy('id');
-    expect($byBudget[$this->budget->id]['periods'][0]['planned'])->toBe(10000)->and($byBudget[$personal->id]['periods'][0]['planned'])->toBe(30000);
+    $response = $this->actingAs($member)->get(route('dashboard'))->assertOk();
+    $trends = $response->viewData('budgetTrends');
+    expect($trends)->toHaveCount(1)->and($trends[0]['id'])->toBe($this->budget->id)
+        ->and($trends[0]['periods'][0]['planned'])->toBe(10000)
+        ->and($response->viewData('dashboardPeriod')->id)->toBe($shared->id);
     $this->budget->members()->detach($member);
     expect(app(BudgetTrends::class)->build($member))->toHaveCount(1);
     $this->budget->members()->attach($member, ['role' => 'editor']);

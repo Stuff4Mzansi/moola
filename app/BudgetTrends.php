@@ -15,11 +15,14 @@ use Illuminate\Support\Facades\Gate;
 class BudgetTrends
 {
     /** @return list<array{id: int, name: string, scope: string, periods: list<array{id: int, label: string, start: string, end: string, days: int, received: int, complete: bool, planned: int, spent: int, categories: list<array{key: string, name: string, planned: int, spent: int}>, url: string}>}> */
-    public function build(User $user): array
+    public function build(User $user, ?Budget $selectedBudget = null, ?BudgetPeriod $selectedPeriod = null): array
     {
         $today = CarbonImmutable::today();
-        $budgets = Budget::visibleTo($user)->orderBy('name')->with(['periods' => fn (HasMany $periods): HasMany => $periods
-            ->whereDate('start_date', '<=', $today)->orderBy('start_date')->orderBy('id')
+        $budgets = Budget::visibleTo($user)->when($selectedBudget !== null, fn (Builder $query): Builder => $query->whereKey($selectedBudget->id))
+            ->orderBy('name')->with(['periods' => fn (HasMany $periods): HasMany => $periods
+            ->whereDate('start_date', '<=', $today)
+            ->when($selectedPeriod !== null, fn (Builder $query): Builder => $query->whereDate('end_date', '<=', $selectedPeriod->end_date))
+            ->orderBy('start_date')->orderBy('id')
             ->withSum('transactions', 'amount_cents')->withSum('incomes', 'received_cents')
             ->with(['categories' => fn (HasMany $categories): HasMany => $categories->withSum('transactions', 'amount_cents')->orderBy('name')])
             ->with(['commitments' => fn (HasMany $charges): HasMany => $charges->where(fn (Builder $current): Builder => $current->where('is_current', true)->orWhereHas('transaction'))])])->get();

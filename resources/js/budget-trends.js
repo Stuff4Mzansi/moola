@@ -29,7 +29,6 @@ function initializeBudgetTrends() {
     const budgets = JSON.parse(section.querySelector('[data-trend-data]').textContent);
     if (!budgets.length) return;
     const find = (name) => section.querySelector(`[data-trend-${name}]`);
-    const selector = find('budget');
     const range = find('range');
     const currencyPrefix = document.body.dataset.currencyPrefix || 'R ';
     const currencySymbol = document.body.dataset.currencySymbol || 'R';
@@ -38,8 +37,6 @@ function initializeBudgetTrends() {
     const shortDate = (day) => new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', timeZone: 'Africa/Johannesburg' }).format(new Date(`${day}T12:00:00+02:00`));
     let mode = 'line';
     let comparison = 'budget';
-    const initialBudget = budgets.find((budget) => budget.periods.some((period) => !period.complete)) ?? budgets.find((budget) => budget.periods.length) ?? budgets[0];
-    selector.value = String(initialBudget.id);
     find('controls').hidden = false;
 
     function svgElement(name, attributes = {}, content = null) {
@@ -136,7 +133,7 @@ function initializeBudgetTrends() {
     }
 
     function render() {
-        const budget = budgets.find((candidate) => String(candidate.id) === selector.value) ?? budgets[0];
+        const budget = budgets[0];
         const periods = selectTrendPeriods(budget.periods, range.value);
         find('content').hidden = periods.length === 0;
         find('empty').hidden = periods.length > 0;
@@ -182,7 +179,6 @@ function initializeBudgetTrends() {
         find('insight').replaceChildren(insight);
     }
 
-    selector.addEventListener('change', render);
     range.addEventListener('change', render);
     section.querySelectorAll('[data-trend-comparison]').forEach((button) => {
         button.addEventListener('click', () => {
@@ -211,7 +207,7 @@ function initializeBudgetTrends() {
     render();
     if (typeof ResizeObserver !== 'undefined') {
         const observer = new ResizeObserver(() => {
-            const budget = budgets.find((candidate) => String(candidate.id) === selector.value) ?? budgets[0];
+            const budget = budgets[0];
             const periods = selectTrendPeriods(budget.periods, range.value);
             if (periods.length) renderChart(periods, budget);
         });

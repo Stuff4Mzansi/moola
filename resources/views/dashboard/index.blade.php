@@ -3,7 +3,6 @@
 @section('content')
 <div class="mx-auto max-w-7xl space-y-4" data-dashboard-customization data-layout-url="{{ route('dashboard.layout.update') }}" x-data="dashboardLayout" x-on:click="handleClick($event)" x-on:dragstart="handleDragStart($event)" x-on:dragover="handleDragOver($event)" x-on:drop="handleDrop($event)" x-on:dragend="handleDragEnd()" x-on:pointerdown="handlePointerDown($event)" x-on:pointermove="handlePointerMove($event)" x-on:pointerup="handlePointerUp($event)" x-on:pointercancel="handlePointerCancel()" x-on:beforeunload.window="handleBeforeUnload($event)">
     @php
-        $activeBudgetCount = $budgetOverview['cards']->count();
         $goalProgress = $savingsOverview['target'] > 0 ? min(100, (int) floor($savingsOverview['saved'] * 100 / $savingsOverview['target'])) : 0;
         $money = fn (int $cents): string => $currencyPrefix.number_format($cents / 100, 2);
     @endphp
@@ -25,55 +24,126 @@
         </dl>
         <p class="mt-2 text-[10px] leading-snug opacity-55">Unreserved cash is based on assets you've classified as liquid, not a live bank balance. Budget totals stay separate because shared budgets can overlap.</p>
     </section>
+    <section class="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-base-300 bg-base-100 px-3 py-2" aria-label="Dashboard budget filter">
+        <div class="min-w-0">
+            <h2 class="text-xs font-semibold">Dashboard budget period</h2>
+            <p class="text-[10px] opacity-60">Budget widgets use this selection. Your choice is saved to your account.</p>
+        </div>
+        @if($dashboardBudgetOptions->flatMap->periods->isNotEmpty())
+            <form method="post" action="{{ route('dashboard.budget-period.update') }}" class="flex min-w-0 items-center gap-2">
+                @csrf
+                <label for="dashboard-budget-period" class="sr-only">Choose dashboard budget and period</label>
+                <select class="select select-xs w-full max-w-80" id="dashboard-budget-period" name="period_id" x-on:change="$el.form.requestSubmit()">
+                    @foreach($dashboardBudgetOptions as $budget)
+                        @if($budget->periods->isNotEmpty())
+                            <optgroup label="{{ $budget->name }} · {{ $budget->scope === 'household' ? 'Shared' : 'Personal' }}">
+                                @foreach($budget->periods as $period)
+                                    <option value="{{ $period->id }}" @selected($dashboardPeriod?->id === $period->id)>{{ $budget->name }} · {{ $period->name }} · {{ $period->start_date->format('j M Y') }}–{{ $period->end_date->format('j M Y') }}</option>
+                                @endforeach
+                            </optgroup>
+                        @endif
+                    @endforeach
+                </select>
+                <noscript><button class="btn btn-outline btn-xs shrink-0" type="submit">Apply</button></noscript>
+            </form>
+        @else
+            <a class="btn btn-outline btn-xs" href="{{ route('budgets.index') }}">Create a budget period</a>
+        @endif
+    </section>
     <div class="grid items-stretch gap-3 lg:grid-cols-2">
         @include('dashboard.monthly-budget')
         <section class="flex min-w-0 flex-col overflow-hidden rounded-sm border border-base-300 bg-base-100 p-3 sm:p-4" aria-labelledby="dashboard-cash-flow-title">
-            <header class="flex flex-wrap items-start justify-between gap-3">
+            <header class="flex flex-wrap items-center justify-between gap-2">
                 <div class="min-w-0">
-                    <h2 id="dashboard-cash-flow-title" class="flex items-center gap-2 text-base font-semibold"><span class="grid size-7 shrink-0 place-items-center rounded-sm bg-info/10 text-info"><x-lucide-arrow-left-right class="size-4" aria-hidden="true" /></span>Cash-flow outlook</h2>
-                    <p class="mt-0.5 text-[11px] opacity-60">Expected income and spending over the next {{ $liquidityOverview['horizon'] }} days.</p>
+                    <h2 id="dashboard-cash-flow-title" class="flex items-center gap-2 text-sm font-semibold"><span class="grid size-6 shrink-0 place-items-center rounded-sm bg-info/10 text-info"><x-lucide-arrow-left-right class="size-3.5" aria-hidden="true" /></span>Cash-flow outlook</h2>
+                    <p class="mt-0.5 pl-8 text-[10px] opacity-60">Next {{ $liquidityOverview['horizon'] }} days · expected, not confirmed</p>
                 </div>
                 <a class="btn btn-ghost btn-xs shrink-0 text-primary" href="{{ route('net-worth.index', ['tab' => 'liquidity']) }}">Plan cash flow <x-lucide-arrow-up-right class="size-3.5" aria-hidden="true" /></a>
             </header>
-            <div class="mt-3 flex flex-wrap items-end justify-between gap-2 rounded-sm bg-base-200/60 px-3 py-2">
-                <div>
-                    <p class="text-[10px] opacity-60">Forecast low point</p>
-                    <p @class(['mt-0.5 text-base font-semibold tabular-nums', 'text-error' => $liquidityOverview['lowest']['low'] < 0, 'text-success' => $liquidityOverview['lowest']['low'] >= 0])>{{ $currencyPrefix }}{{ number_format($liquidityOverview['lowest']['low'] / 100, 2) }}</p>
+            <div class="mt-3 grid grid-cols-3 gap-1.5 sm:gap-2" aria-label="Cash-flow summary">
+                <div class="min-w-0 rounded-sm bg-base-200/50 px-1.5 py-2 sm:px-2.5">
+                    <p class="text-[9px] opacity-60 sm:text-[10px]">Forecast low point</p>
+                    <p @class(['mt-0.5 break-words text-xs font-semibold tabular-nums sm:text-sm', 'text-error' => $liquidityOverview['lowest']['low'] < 0, 'text-success' => $liquidityOverview['lowest']['low'] >= 0])>{{ $currencyPrefix }}{{ number_format($liquidityOverview['lowest']['low'] / 100, 2) }}</p>
+                    <p class="mt-0.5 text-[9px] opacity-55 sm:text-[10px]">Around {{ \Carbon\CarbonImmutable::parse($liquidityOverview['lowest']['date'])->format('j M') }}</p>
                 </div>
-                <p class="text-right text-[11px] opacity-65">Around {{ \Carbon\CarbonImmutable::parse($liquidityOverview['lowest']['date'])->format('j M') }}</p>
+                <div class="min-w-0 rounded-sm bg-base-200/50 px-1.5 py-2 sm:px-2.5">
+                    <p class="text-[9px] opacity-60 sm:text-[10px]">Period expected</p>
+                    <p class="mt-0.5 break-words text-xs font-semibold tabular-nums sm:text-sm">{{ $currencyPrefix }}{{ number_format($periodIncomes->sum('expected_cents') / 100, 2) }}</p>
+                </div>
+                <div class="min-w-0 rounded-sm bg-base-200/50 px-1.5 py-2 sm:px-2.5">
+                    <p class="text-[9px] opacity-60 sm:text-[10px]">Period received</p>
+                    <p class="mt-0.5 break-words text-xs font-semibold tabular-nums text-success sm:text-sm">{{ $currencyPrefix }}{{ number_format($periodIncomes->sum('received_cents') / 100, 2) }}</p>
+                </div>
             </div>
-            <h3 class="mt-3 flex items-center gap-1.5 text-xs font-medium opacity-80"><x-lucide-calendar-clock class="size-3.5 text-primary" aria-hidden="true" />Upcoming events</h3>
-            <div class="mt-1.5 max-h-52 flex-1 divide-y divide-base-300 overflow-y-auto rounded-sm border border-base-300/70" tabindex="0" role="region" aria-label="Upcoming cash-flow events">
+            <section class="mt-3 min-w-0" aria-labelledby="dashboard-period-income-title">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-base-300/70 pb-1.5">
+                    <h3 id="dashboard-period-income-title" class="text-xs font-medium">Income by budget period</h3>
+                    @if($dashboardPeriod)<span class="max-w-1/2 break-words text-right text-[10px] opacity-60">{{ $dashboardPeriod->budget->name }} · {{ $dashboardPeriod->name }}</span>@endif
+                </div>
+                @if($dashboardPeriod)
+                    <div class="mt-1 max-h-36 divide-y divide-base-300/70 overflow-y-auto" tabindex="0" role="region" aria-label="Income entries for selected budget period">
+                        @forelse($periodIncomes as $income)
+                            <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5">
+                                <div class="min-w-0 flex-1">
+                                    <p class="break-words text-xs font-medium">{{ $income->name }}</p>
+                                    <p class="mt-0.5 text-[10px] opacity-60">Expected{{ $income->expected_date ? ' · '.$income->expected_date->format('j M') : '' }}
+                                        <span class="mx-1" aria-hidden="true">·</span>
+                                        Received{{ $income->received_date ? ' · '.$income->received_date->format('j M') : ' · not yet' }}
+                                    </p>
+                                </div>
+                                <div class="flex shrink-0 gap-3 text-right text-[10px] tabular-nums">
+                                    <span><span class="block text-[9px] opacity-55">Expected</span><span>{{ $currencyPrefix }}{{ number_format($income->expected_cents / 100, 2) }}</span></span>
+                                    <span><span class="block text-[9px] opacity-55">Received</span><span class="text-success">{{ $currencyPrefix }}{{ number_format($income->received_cents / 100, 2) }}</span></span>
+                                </div>
+                            </div>
+                        @empty
+                            <p class="py-2 text-xs opacity-65">No income entries are recorded for this budget period.</p>
+                        @endforelse
+                    </div>
+                @else
+                    <p class="mt-2 text-xs opacity-65">Create a budget period to review its income entries here.</p>
+                @endif
+            </section>
+            <section class="mt-3 min-w-0" aria-labelledby="dashboard-upcoming-events-title">
+                <div class="flex items-center justify-between gap-2 border-b border-base-300/70 pb-1.5">
+                    <h3 id="dashboard-upcoming-events-title" class="flex items-center gap-1.5 text-xs font-medium opacity-80"><x-lucide-calendar-clock class="size-3.5 text-primary" aria-hidden="true" />Upcoming events</h3>
+                    <span class="text-[10px] opacity-55">Next {{ $liquidityOverview['horizon'] }} days</span>
+                </div>
+                <div class="mt-1 max-h-44 divide-y divide-base-300/70 overflow-y-auto" tabindex="0" role="region" aria-label="Upcoming cash-flow events">
                 @forelse($liquidityOverview['events'] as $event)
                     @php
                         $eventDate = \Carbon\CarbonImmutable::parse($event['date']);
-                        $eventClasses = 'flex items-center gap-2.5 px-2.5 py-2 hover:bg-base-200/50';
+                        $eventClasses = 'flex items-center gap-2 px-1.5 py-1.5 hover:bg-base-200/50';
                     @endphp
                     @if($event['url'])
                         <a class="{{ $eventClasses }}" href="{{ $event['url'] }}">
                     @else
                         <div class="{{ $eventClasses }}">
                     @endif
-                        <time class="flex w-9 shrink-0 flex-col items-center rounded-sm {{ $event['kind'] === 'income' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning' }} py-1" datetime="{{ $eventDate->toDateString() }}">
-                            <span class="text-[9px] uppercase opacity-70">{{ $eventDate->format('M') }}</span>
-                            <span class="text-sm font-semibold leading-tight tabular-nums">{{ $eventDate->format('d') }}</span>
+                        <time class="flex w-9 shrink-0 flex-col items-center rounded-sm {{ $event['kind'] === 'income' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning' }} py-0.5" datetime="{{ $eventDate->toDateString() }}">
+                            <span class="text-[8px] uppercase opacity-70">{{ $eventDate->format('M') }}</span>
+                            <span class="text-xs font-semibold leading-tight tabular-nums">{{ $eventDate->format('d') }}</span>
                         </time>
                         <span class="min-w-0 flex-1">
-                            <span class="block break-words text-xs font-medium">{{ $event['name'] }}</span>
-                            <span class="mt-0.5 block text-[10px] {{ $event['kind'] === 'income' ? 'text-success' : 'opacity-55' }}">{{ $event['kind'] === 'income' ? 'Expected income' : 'Forecast outflow' }}</span>
+                            <span class="block break-words text-[11px] font-medium">{{ $event['name'] }}</span>
+                            <span class="block text-[9px] {{ $event['kind'] === 'income' ? 'text-success' : 'opacity-55' }}">{{ $event['kind'] === 'income' ? 'Expected income' : 'Forecast outflow' }}</span>
                         </span>
-                        <span class="shrink-0 text-right text-xs font-semibold tabular-nums {{ $event['kind'] === 'income' ? 'text-success' : 'text-warning' }}">{{ $event['kind'] === 'income' ? '+' : '−' }}{{ $money($event['amount']) }}</span>
+                        <span class="shrink-0 text-right text-[11px] font-semibold tabular-nums {{ $event['kind'] === 'income' ? 'text-success' : 'text-warning' }}">{{ $event['kind'] === 'income' ? '+' : '−' }}{{ $money($event['amount']) }}</span>
                     @if($event['url'])
                         </a>
                     @else
                         </div>
                     @endif
                 @empty
-                    <p class="px-3 py-4 text-xs opacity-65">No upcoming income or spending is scheduled in this forecast window.</p>
+                    <p class="rounded-sm bg-base-200/40 px-2.5 py-2 text-[11px] opacity-65">No upcoming income or spending is scheduled in this forecast window.</p>
                 @endforelse
-            </div>
-            <p class="mt-2 text-[10px] leading-snug opacity-55">Forecasts use your recorded schedules, selected budget assumptions, and classified cash; they are estimates, not confirmed payments.</p>
+                </div>
+            </section>
+            <p class="mt-auto pt-2 text-[9px] leading-snug opacity-50">Forecasts use recorded schedules, selected budget assumptions and classified cash; they are estimates, not confirmed payments.</p>
         </section>
+    </div>
+    <div class="rounded-sm border border-base-300 bg-base-100 p-3 sm:p-4">
+        @include('dashboard.budgets')
     </div>
     <section class="rounded-sm border border-base-300 bg-base-100" aria-labelledby="attention-title">
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-base-300 px-3 py-2"><div><h2 id="attention-title" class="flex items-center gap-2 text-sm font-semibold">@if($attentionItems->isEmpty())<x-lucide-badge-check class="size-4 text-success" aria-hidden="true" />@else<x-lucide-circle-alert class="size-4 text-warning" aria-hidden="true" />@endif Needs attention</h2><p class="text-[10px] opacity-60">Highest-priority issues from your current financial records.</p></div><span class="badge badge-sm {{ $attentionItems->isEmpty() ? 'badge-success' : 'badge-warning' }}">{{ $attentionItems->isEmpty() ? 'All clear' : $attentionItems->count().' to review' }}</span></div>

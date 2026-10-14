@@ -32,7 +32,7 @@ beforeEach(function () {
 
 test('dashboard separates actual spending from recurring forecasts and uses workspace totals', function () {
     BudgetRecurringExpense::factory()->create(['budget_id' => $this->budget->id, 'category_name' => 'Home', 'name' => 'Electricity', 'start_date' => '2026-10-05', 'amount_cents' => 30000]);
-    $response = $this->get(route('dashboard'))->assertOk()->assertSee('Your budgets at a glance')->assertSee('My October plan')
+    $response = $this->get(route('dashboard'))->assertOk()->assertSee('Selected budget at a glance')->assertSee('My October plan')
         ->assertSee('Room after scheduled expenses')->assertSee('R 500.00')->assertSee('Spending by category')
         ->assertSee('Allocate money')->assertSee('not your bank balance');
     $card = $response->viewData('budgetOverview')['cards']->sole();
@@ -47,8 +47,8 @@ test('dashboard separates actual spending from recurring forecasts and uses work
 test('dashboard chart data includes current spending pace and uncategorised spending', function () {
     BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => null, 'amount_cents' => 5000, 'date' => '2026-10-02']);
     $response = $this->get(route('dashboard'))->assertOk()
-        ->assertSee('Current-period spending pace')
-        ->assertSee('Current-period spending mix')
+        ->assertSee('Selected-period spending pace')
+        ->assertSee('Selected-period spending mix')
         ->assertSee('Income received')
         ->assertSee('Uncategorised');
     $card = $response->viewData('budgetOverview')['cards']->sole();
@@ -123,7 +123,9 @@ test('household viewers and editors receive separate shared cards and appropriat
         ->and($shared['totals']['expected'])->toBe(100000)->and($shared['insights'][0]['action'])->toBe($role === 'viewer' ? 'Review allocations' : 'Allocate money')
         ->and($cards->first(fn (array $card): bool => $card['budget']->id === $own->id)['totals']['expected'])->toBe(300000);
     if ($role === 'viewer') {
-        $response->assertSee('View only');
+        $this->post(route('dashboard.budget-period.update'), ['period_id' => $this->period->id])->assertRedirect(route('dashboard'));
+        $this->get(route('dashboard'))->assertOk()->assertSee('View only')
+            ->assertViewHas('dashboardBudget', fn (array $card): bool => $card['budget']->id === $this->budget->id);
     }
 })->with(['viewer', 'editor']);
 
@@ -140,11 +142,12 @@ test('inactive periods offer the nearest future plan without presenting its amou
     $this->period->update(['start_date' => '2026-09-01', 'end_date' => '2026-09-30']);
     BudgetPeriod::factory()->create(['budget_id' => $this->budget->id, 'start_date' => '2026-12-01', 'end_date' => '2026-12-31']);
     $next = BudgetPeriod::factory()->create(['budget_id' => $this->budget->id, 'start_date' => '2026-11-01', 'end_date' => '2026-11-30']);
-    $response = $this->get(route('dashboard'))->assertOk()->assertSee('No budget period covers today')->assertSee('starting 01 Nov 2026')->assertSee('Review next period')->assertDontSee('Room after scheduled expenses');
+    $response = $this->get(route('dashboard'))->assertOk()->assertSee('Upcoming budget period')->assertSee('Starts 1 Nov 2026')->assertSee('Selected-period spending pace');
     expect($response->viewData('budgetOverview')['nextPeriod']->id)->toBe($next->id);
+    expect($response->viewData('dashboardPeriod')->id)->toBe($next->id);
     $next->delete();
     $this->period->budget->periods()->where('start_date', '>', '2026-10-03')->delete();
-    $this->get(route('dashboard'))->assertOk()->assertSee('Your latest period ended 30 Sep 2026');
+    $this->get(route('dashboard'))->assertOk()->assertSee('Completed budget period')->assertSee('Period ended');
 });
 
 test('custom period boundaries are inclusive and a final day forecast divides by one', function () {

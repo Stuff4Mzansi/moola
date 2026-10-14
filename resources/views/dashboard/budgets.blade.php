@@ -1,11 +1,11 @@
 <section class="space-y-3" aria-labelledby="dashboard-budgets-title">
     <div class="flex flex-wrap items-center justify-between gap-2">
-        <div><h2 id="dashboard-budgets-title" class="flex items-center gap-1.5 text-sm font-semibold"><x-lucide-chart-pie class="size-3.5 text-primary" aria-hidden="true" />Your budgets at a glance</h2><p class="mt-0.5 text-[10px] opacity-60">Current periods, useful signals, and your next move.</p></div>
+        <div><h2 id="dashboard-budgets-title" class="flex items-center gap-1.5 text-sm font-semibold"><x-lucide-chart-pie class="size-3.5 text-primary" aria-hidden="true" />Budget at a glance</h2><p class="mt-0.5 text-[10px] opacity-60">Useful signals and your next move for the selected period.</p></div>
         <a class="btn btn-xs btn-outline" href="{{ route('budgets.index') }}">View all budgets <x-lucide-arrow-up-right class="size-3.5" aria-hidden="true" /></a>
     </div>
-    @if($budgetOverview['cards']->isNotEmpty())
+    @if($dashboardBudgetOverview['cards']->isNotEmpty())
         <div class="grid items-stretch gap-3 xl:grid-cols-2">
-            @foreach($budgetOverview['cards'] as $card)
+            @foreach($dashboardBudgetOverview['cards'] as $card)
                 @php
                     $totals = $card['totals'];
                     $fillsRow = $loop->last && $loop->count % 2 === 1;
@@ -28,7 +28,7 @@
                             <div class="min-w-0"><p class="text-[10px] opacity-60">Unpaid forecasts</p><p class="mt-0.5 break-words text-xs font-semibold tabular-nums">{{ $currencyPrefix }}{{ number_format($totals['upcoming'] / 100, 2) }}</p></div>
                             <div class="min-w-0"><p class="text-[10px] opacity-60">Expected income</p><p class="mt-0.5 break-words text-xs font-semibold tabular-nums">{{ $currencyPrefix }}{{ number_format($totals['expected'] / 100, 2) }}</p></div>
                         </div>
-                        <div class="mt-4 flex flex-wrap justify-between gap-2 text-xs opacity-70"><span>{{ $card['daysLeft'] }} {{ $card['daysLeft'] === 1 ? 'day' : 'days' }} left, including today</span>@if($totals['expected'] > 0 && $totals['after_commitments'] >= 0)<span>Forecast room: {{ $currencyPrefix }}{{ number_format($card['dailyRoom'] / 100, 2) }}/day</span>@endif</div>
+                        <div class="mt-4 flex flex-wrap justify-between gap-2 text-xs opacity-70"><span>@if($card['isPast'])Period ended @elseif($card['isFuture'])Starts {{ $card['period']->start_date->format('j M Y') }}@else{{ $card['daysLeft'] }} {{ $card['daysLeft'] === 1 ? 'day' : 'days' }} left, including today @endif</span>@if(! $card['isPast'] && ! $card['isFuture'] && $totals['expected'] > 0 && $totals['after_commitments'] >= 0)<span>Forecast room: {{ $currencyPrefix }}{{ number_format($card['dailyRoom'] / 100, 2) }}/day</span>@endif</div>
                         <progress class="progress progress-primary mt-2 h-1 w-full opacity-40" value="{{ $card['elapsedPercent'] }}" max="100" aria-label="Budget period elapsed"></progress>
                     </div>
                     <div @class(['min-w-0 space-y-3 p-3', 'xl:border-l xl:border-base-300' => $fillsRow])>
@@ -66,13 +66,15 @@
                 </article>
             @endforeach
         </div>
-        <p class="text-xs opacity-60">Each budget is shown separately. Forecast room uses expected income, not your bank balance. Scheduled expenses may already be paid if you have not recorded them yet.</p>
+        <p class="text-xs opacity-60">Forecast room uses expected income, not your bank balance. Scheduled expenses may already be paid if you have not recorded them yet.</p>
     @else
         <div class="flex flex-col items-start gap-5 rounded-sm border border-dashed border-primary/30 bg-gradient-to-br from-primary/10 to-base-100 p-6 sm:flex-row sm:items-center">
             <div class="flex size-14 shrink-0 items-center justify-center rounded-sm bg-primary/10 text-primary"><x-lucide-chart-pie class="size-7" /></div>
             <div class="flex-1">
                 @if($budgetOverview['totalBudgets'] === 0)
                     <h3 class="text-lg font-semibold">Give your money a plan</h3><p class="mt-1 text-sm opacity-65">Set your dates, add expected income, and plan your categories. Your spending signals will appear here.</p>
+                @elseif($dashboardBudgetOptions->flatMap->periods->isNotEmpty())
+                    <h3 class="text-lg font-semibold">Choose a budget period</h3><p class="mt-1 text-sm opacity-65">Select a budget period above to see its figures here.</p>
                 @else
                     <h3 class="text-lg font-semibold">No budget period covers today</h3>
                     @if($budgetOverview['nextPeriod'])

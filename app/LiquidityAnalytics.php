@@ -24,7 +24,7 @@ class LiquidityAnalytics
      * @param  array<string, mixed>|null  $balances
      * @return array<string, mixed>
      */
-    public function build(User $user, array $scenario = [], ?array $balances = null): array
+    public function build(User $user, array $scenario = [], ?array $balances = null, ?BudgetPeriod $selectedPeriod = null): array
     {
         $today = CarbonImmutable::today();
         $balances ??= app(NetWorthWorkspace::class)->balances($user, $today);
@@ -32,6 +32,9 @@ class LiquidityAnalytics
         $budgets = Budget::query()->where('user_id', $user->id)->orderBy('name')->get();
         $budgetIds = $preference->budget_ids ?? $budgets->where('scope', 'personal')->pluck('id')->all();
         $budgetIds = $budgets->whereIn('id', $budgetIds)->pluck('id')->all();
+        if ($selectedPeriod !== null) {
+            $budgetIds = [$selectedPeriod->budget_id];
+        }
         $horizon = (int) ($scenario['horizon'] ?? $preference->horizon);
         $until = $today->addDays($horizon - 1);
         $reserves = AssetReserve::query()->whereHas('asset', fn (Builder $query): Builder => $query->where('user_id', $user->id))->with(['asset', 'goal'])->orderBy('name')->get();
@@ -56,7 +59,9 @@ class LiquidityAnalytics
         $missingIncome = 0;
         $missingIncomeAmount = 0;
         $overdue = 0;
-        $periodIds = BudgetPeriod::query()->whereIn('budget_id', $budgetIds)->whereDate('end_date', '>=', $today)->whereDate('start_date', '<=', $until)->pluck('id');
+        $periodIds = $selectedPeriod === null
+            ? BudgetPeriod::query()->whereIn('budget_id', $budgetIds)->whereDate('end_date', '>=', $today)->whereDate('start_date', '<=', $until)->pluck('id')
+            : collect([$selectedPeriod->id]);
         foreach (BudgetIncome::query()->whereIn('budget_period_id', $periodIds)->get() as $income) {
             $remaining = max(0, $income->expected_cents - $income->received_cents);
             if ($remaining === 0) {
@@ -69,31 +74,56 @@ class LiquidityAnalytics
                 continue;
             }
             $date = $income->expected_date->addDays((int) ($scenario['income_delay'] ?? 0));
-            if ($date->lte($until)) {
+            if ($date->lte($until) && ($selectedPeriod === null || $date->betweenIncluded($selectedPeriod->start_date, $selectedPeriod->end_date))) {
                 $events['income:'.$income->id] = $this->event($date, $income->name, $remaining, 'income', 'income', route('budgets.index', ['period' => $income->budget_period_id, 'tab' => 'plan']));
             }
         }
         $subscriptions = Subscription::query()->where('user_id', $user->id)->pluck('id');
-        $commitments = BudgetCommitment::query()->whereIn('subscription_id', $subscriptions)->whereIn('budget_period_id', BudgetPeriod::query()->whereIn('budget_id', $budgets->pluck('id'))->select('id'))->whereDate('scheduled_date', '>=', $today->subDays(90))->whereDate('scheduled_date', '<=', $until)->with('transaction')->orderBy('id')->get();
-        $paidSubscriptions = $commitments->filter(fn (BudgetCommitment $charge): bool => $charge->transaction !== null)->keyBy(fn (BudgetCommitment $charge): string => $charge->subscription_id.'|'.$charge->scheduled_date->toDateString());
-        $selectedPeriods = BudgetPeriod::query()->whereIn('budget_id', $budgetIds)->pluck('id');
-        $selectedCommitments = $commitments->whereIn('budget_period_id', $selectedPeriods)->where('is_current', true)->keyBy(fn (BudgetCommitment $charge): string => $charge->subscription_id.'|'.$charge->scheduled_date->toDateString());
-        foreach ($selectedCommitments as $key => $charge) {
-            if ($paidSubscriptions->has($key)) {
-                continue;
-            }
-            if ($charge->scheduled_date->lt($today)) {
-                $overdue++;
-            }
+        $commitmentsQuery = BudgetCommitment::query()
+            ->whereDate('scheduled_date', '>=', $today->subDays(90))
+            ->whereDate('scheduled_date', '<=', $until);
+        if ($selectedPeriod === null) {
+            $commitmentsQuery->whereIn('subscription_id', $subscriptions)
+                ->whereIn('budget_period_id', BudgetPeriod::query()->whereIn('budget_id', $budgets->pluck('id'))->select('id'));
+        } else {
+            $commitmentsQuery->whereIn('budget_period_id', $periodIds);
         }
-        foreach (Subscription::query()->where('user_id', $user->id)->where('status', SubscriptionStatus::Active->value)->get() as $subscription) {
-            foreach ($subscription->renewalsBetween($today, $until) as $date) {
-                $key = $subscription->id.'|'.$date->toDateString();
-                if (! $paidSubscriptions->has($key)) {
-                    $charge = $selectedCommitments->get($key);
-                    $url = $charge === null ? route('subscriptions.edit', $subscription) : route('budgets.index', ['period' => $charge->budget_period_id, 'tab' => 'subscriptions']);
-                    $events['subscription:'.$key] = $this->event($date, $subscription->name, $subscription->amount_cents, 'expense', 'subscription', $url);
+        $commitments = $commitmentsQuery->with('transaction')->orderBy('id')->get();
+        $paidSubscriptions = $commitments->filter(fn (BudgetCommitment $charge): bool => $charge->transaction !== null)->keyBy(fn (BudgetCommitment $charge): string => $charge->subscription_id.'|'.$charge->scheduled_date->toDateString());
+        $selectedPeriods = $selectedPeriod === null
+            ? BudgetPeriod::query()->whereIn('budget_id', $budgetIds)->pluck('id')
+            : collect([$selectedPeriod->id]);
+        $selectedCommitments = $commitments->whereIn('budget_period_id', $selectedPeriods)->where('is_current', true)->keyBy(fn (BudgetCommitment $charge): string => $charge->subscription_id.'|'.$charge->scheduled_date->toDateString());
+        if ($selectedPeriod === null) {
+            foreach ($selectedCommitments as $key => $charge) {
+                if ($paidSubscriptions->has($key)) {
+                    continue;
                 }
+                if ($charge->scheduled_date->lt($today)) {
+                    $overdue++;
+                }
+            }
+            foreach (Subscription::query()->where('user_id', $user->id)->where('status', SubscriptionStatus::Active->value)->get() as $subscription) {
+                foreach ($subscription->renewalsBetween($today, $until) as $date) {
+                    $key = $subscription->id.'|'.$date->toDateString();
+                    if (! $paidSubscriptions->has($key)) {
+                        $charge = $selectedCommitments->get($key);
+                        $url = $charge === null ? route('subscriptions.edit', $subscription) : route('budgets.index', ['period' => $charge->budget_period_id, 'tab' => 'subscriptions']);
+                        $events['subscription:'.$key] = $this->event($date, $subscription->name, $subscription->amount_cents, 'expense', 'subscription', $url);
+                    }
+                }
+            }
+        } else {
+            foreach ($selectedCommitments as $key => $charge) {
+                if ($paidSubscriptions->has($key)) {
+                    continue;
+                }
+                if ($charge->scheduled_date->lt($today)) {
+                    $overdue++;
+
+                    continue;
+                }
+                $events['subscription:'.$key] = $this->event($charge->scheduled_date, $charge->name, $charge->amount_cents, 'expense', 'subscription', route('budgets.index', ['period' => $selectedPeriod->id, 'tab' => 'subscriptions']));
             }
         }
         $charges = BudgetRecurringCharge::query()->whereIn('budget_period_id', $selectedPeriods)->whereDate('scheduled_date', '>=', $today->subDays(90))->whereDate('scheduled_date', '<=', $until)->with('transaction')->orderBy('id')->get();
@@ -111,9 +141,13 @@ class LiquidityAnalytics
             $events['recurring:'.$key] = $this->event($charge->scheduled_date, $charge->name, $charge->amount_cents, 'expense', 'recurring', route('budgets.index', ['period' => $charge->budget_period_id, 'tab' => 'recurring']));
         }
         foreach (BudgetRecurringExpense::query()->whereIn('budget_id', $budgetIds)->when(config('features.debt_tracking'), fn (Builder $query): Builder => $query->whereNull('debt_id'))->where('is_active', true)->get() as $expense) {
-            $end = $expense->end_date === null ? $until : $until->min($expense->end_date);
+            $from = $selectedPeriod === null ? $today : $today->max($selectedPeriod->start_date);
+            $end = $until->min($selectedPeriod?->end_date ?? $until);
+            if ($expense->end_date !== null) {
+                $end = $end->min($expense->end_date);
+            }
             $estimate = app(BudgetRecurringExpenses::class)->estimate($expense, $today)['amount_cents'];
-            foreach ((new RecurringSchedule($expense->billing_frequency, $expense->start_date))->between($today, $end) as $date) {
+            foreach ((new RecurringSchedule($expense->billing_frequency, $expense->start_date))->between($from, $end) as $date) {
                 $key = $expense->id.'|'.$date->toDateString();
                 if (! $paidRecurring->has($key)) {
                     $events['recurring:'.$key] ??= $this->event($date, $expense->name, $estimate, 'expense', 'recurring', route('budgets.index'));
