@@ -187,6 +187,28 @@ test('recording subscription payments counts each charge once and supports undo'
     $this->assertDatabaseCount('budget_transactions', 1);
 });
 
+test('skipping a subscription occurrence removes only that period forecast', function () {
+    $subscription = Subscription::factory()->for($this->user)->create(['amount_cents' => 15999, 'next_billing_date' => '2026-10-10']);
+    $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'subscriptions']))->assertOk()->assertSee('Skip this period');
+    $charge = $this->period->commitments()->sole();
+
+    $this->postJson(budgetActionUrl($this->period, 'commitment-skip'), budgetActionPayload($this->period, ['id' => $charge->id]))
+        ->assertOk()
+        ->assertJsonPath('message', 'Subscription occurrence skipped for this period. Future renewals are unchanged.');
+
+    expect($charge->fresh()->is_skipped)->toBeTrue()
+        ->and($charge->fresh()->is_current)->toBeFalse()
+        ->and($subscription->fresh()->status->value)->toBe('active');
+    $this->get(route('budgets.index', ['period' => $this->period->id]))
+        ->assertViewHas('totals', fn (array $totals): bool => $totals['upcoming'] === 0 && $totals['planned'] === 0);
+    $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'review']))
+        ->assertViewHas('periodReview', fn (array $review): bool => $review['pendingAmount'] === 0 && $review['pending'] === []);
+    $this->postJson(route('budgets.periods.store', $this->period->budget), ['name' => 'November', 'start_date' => '2026-11-01', 'end_date' => '2026-11-30', 'expected_income' => '0', 'copy_from' => $this->period->id])->assertOk();
+    $nextPeriod = $this->period->budget->periods()->latest('id')->first();
+    expect($nextPeriod->commitments()->sole()->subscription_id)->toBe($subscription->id)
+        ->and($nextPeriod->commitments()->sole()->scheduled_date->toDateString())->toBe('2026-11-10');
+});
+
 test('future forecast updates explain subscription changes while historic periods are preserved', function () {
     $subscription = Subscription::factory()->for($this->user)->create(['amount_cents' => 10000, 'next_billing_date' => '2026-09-10']);
     $this->postJson(route('budgets.store'), [...$this->creation, 'name' => 'Historic', 'start_date' => '2026-09-01', 'end_date' => '2026-09-30'])->assertOk();

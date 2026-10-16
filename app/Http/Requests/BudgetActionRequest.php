@@ -53,6 +53,7 @@ class BudgetActionRequest extends FormRequest
             ],
             'recurring-save' => ['id' => ['nullable', 'integer'], 'name' => ['required', 'string', 'max:100'], 'category_id' => ['required', 'integer'], 'amount' => BudgetMoney::rules(true), 'billing_frequency' => ['required', Rule::enum(BillingFrequency::class)], 'start_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:1900-01-01', 'before_or_equal:2100-12-31'], 'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date', 'before_or_equal:2100-12-31'], 'is_active' => ['required', 'boolean']],
             'recurring-pay' => ['id' => ['required', 'integer'], 'amount' => BudgetMoney::rules(true), 'date' => $dateRules],
+            'recurring-skip', 'commitment-skip' => ['id' => ['required', 'integer']],
             'budget-rename' => ['name' => ['required', 'string', 'max:100']],
             'group-save' => ['id' => ['nullable', 'integer'], 'name' => ['required', 'string', 'max:100'], 'percentage' => ['nullable', 'numeric', 'min:0', 'max:100', 'regex:/^\d+(?:\.\d{1,2})?$/']],
             'category-group' => ['id' => ['required', 'integer'], 'group_id' => ['nullable', 'integer']],

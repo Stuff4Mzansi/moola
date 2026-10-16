@@ -104,6 +104,28 @@ test('recording a recurring payment replaces its reservation exactly once and su
     $this->postJson(recurringUrl($this->period, 'expense-restore'), recurringData($this->period, ['id' => $transaction->id]))->assertOk();
 });
 
+test('skipping a recurring occurrence removes only that period forecast', function () {
+    $this->postJson(recurringUrl($this->period, 'recurring-save'), recurringData($this->period, $this->creation))->assertOk();
+    $expense = $this->period->budget->recurringExpenses()->sole();
+    $charge = $this->period->recurringCharges()->sole();
+    $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'recurring']))->assertOk()->assertSee('Skip this period');
+
+    $this->postJson(recurringUrl($this->period, 'recurring-skip'), recurringData($this->period, ['id' => $charge->id]))
+        ->assertOk()
+        ->assertJsonPath('message', 'Recurring occurrence skipped for this period. Future scheduled payments are unchanged.');
+
+    expect($charge->fresh()->is_skipped)->toBeTrue()
+        ->and($charge->fresh()->is_current)->toBeFalse()
+        ->and($expense->fresh()->is_active)->toBeTrue()
+        ->and(app(BudgetWorkspace::class)->data($this->period->fresh())['totals']['upcoming'])->toBe(0);
+    $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'review']))
+        ->assertViewHas('periodReview', fn (array $review): bool => $review['pendingAmount'] === 0 && $review['pending'] === []);
+    $this->postJson(route('budgets.periods.store', $this->period->budget), ['name' => 'November', 'start_date' => '2026-11-01', 'end_date' => '2026-11-30', 'copy_from' => $this->period->id, 'expected_income' => '0'])->assertOk();
+    $nextPeriod = $this->period->budget->periods()->latest('id')->first();
+    expect($nextPeriod->recurringCharges()->sole()->budget_recurring_expense_id)->toBe($expense->id)
+        ->and($nextPeriod->recurringCharges()->sole()->scheduled_date->toDateString())->toBe('2026-11-10');
+});
+
 test('schedules can be edited paused and removed while keeping recorded payments', function () {
     $this->postJson(recurringUrl($this->period, 'recurring-save'), recurringData($this->period, $this->creation))->assertOk();
     $expense = $this->period->budget->recurringExpenses()->sole();

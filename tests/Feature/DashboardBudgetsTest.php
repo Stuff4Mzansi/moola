@@ -33,6 +33,7 @@ beforeEach(function () {
 test('dashboard separates actual spending from recurring forecasts and uses workspace totals', function () {
     BudgetRecurringExpense::factory()->create(['budget_id' => $this->budget->id, 'category_name' => 'Home', 'name' => 'Electricity', 'start_date' => '2026-10-05', 'amount_cents' => 30000]);
     $response = $this->get(route('dashboard'))->assertOk()->assertSee('Budget at a glance')->assertSee('My October plan')
+        ->assertSee('A smarter budget, one tip at a time')->assertSee('Adjust dates when your pay cycle changes')
         ->assertSee('Room after scheduled expenses')->assertSee('R 500.00')->assertSee('Spending by category')
         ->assertSee('Allocate money')->assertSee('not your bank balance');
     $card = $response->viewData('budgetOverview')['cards']->sole();
@@ -41,7 +42,8 @@ test('dashboard separates actual spending from recurring forecasts and uses work
         ->and($card['dueSoonCents'])->toBe(30000)->and($card['daysLeft'])->toBe(29)
         ->and($card['dailyRoom'])->toBe(1724)->and($card['spentPercent'])->toBe(33.3);
     $response->assertSee(e(route('budgets.index', ['period' => $this->period->id, 'tab' => 'recurring'])), false)
-        ->assertSee(e(route('budgets.index', ['period' => $this->period->id, 'tab' => 'plan'])), false);
+        ->assertSee(e(route('budgets.index', ['period' => $this->period->id, 'tab' => 'plan'])), false)
+        ->assertSee('href="'.e(route('budgets.index', ['period' => $this->period->id])).'"', false);
 });
 
 test('dashboard chart data includes current spending pace and uncategorised spending', function () {

@@ -67,6 +67,11 @@ class BudgetRecurringExpenses
 
                 continue;
             }
+            if ($charge->is_skipped) {
+                $expected->forget($key);
+
+                continue;
+            }
             $data = $expected->get($key);
             $charge->fill($data === null ? ['is_current' => false] : [...$data, 'is_current' => true]);
             if ($charge->isDirty()) {

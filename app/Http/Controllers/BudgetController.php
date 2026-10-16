@@ -206,6 +206,7 @@ class BudgetController extends Controller
                     case 'recurring-pay':
                         $charge = $period->recurringCharges()->findOrFail($request->integer('id'));
                         abort_unless($charge->is_current, 422, 'This recurring occurrence was removed. Refresh the budget.');
+                        abort_if($charge->is_skipped, 422, 'This recurring occurrence was skipped. Refresh the budget.');
                         abort_if($charge->transaction()->exists(), 422, 'This recurring expense is already recorded as paid.');
                         $category = $period->categories()->find($charge->budget_category_id) ?? $period->categories()->where('kind', 'other')->sole();
                         $transaction = $period->transactions()->withTrashed()->firstOrNew(['budget_recurring_charge_id' => $charge->id]);
@@ -213,6 +214,14 @@ class BudgetController extends Controller
                         $transaction->deleted_at = null;
                         $transaction->save();
                         $message = 'Recurring payment recorded once. Forecasts use your payment history.';
+                        break;
+                    case 'recurring-skip':
+                        $charge = $period->recurringCharges()->findOrFail($request->integer('id'));
+                        abort_unless($charge->is_current, 422, 'This recurring occurrence was removed. Refresh the budget.');
+                        abort_if($charge->is_skipped, 422, 'This recurring occurrence was already skipped.');
+                        abort_if($charge->transaction()->exists(), 422, 'This recurring expense is already recorded as paid.');
+                        $charge->update(['is_current' => false, 'is_skipped' => true]);
+                        $message = 'Recurring occurrence skipped for this period. Future scheduled payments are unchanged.';
                         break;
                     case 'budget-rename':
                         $period->budget->update($request->safe()->only(['name']));
@@ -309,12 +318,21 @@ class BudgetController extends Controller
                     case 'commitment-pay':
                         $charge = $period->commitments()->findOrFail($request->integer('id'));
                         abort_unless($charge->is_current, 422, 'This scheduled charge was removed. Refresh the budget.');
+                        abort_if($charge->is_skipped, 422, 'This subscription occurrence was skipped. Refresh the budget.');
                         abort_if($charge->transaction()->exists(), 422, 'This subscription charge is already recorded as paid.');
                         $transaction = $period->transactions()->withTrashed()->firstOrNew(['budget_commitment_id' => $charge->id]);
                         $transaction->fill(['budget_category_id' => $period->categories()->where('kind', 'subscriptions')->sole()->id, 'amount_cents' => BudgetMoney::cents($request->input('amount')), 'date' => $request->input('date'), 'description' => $charge->name]);
                         $transaction->deleted_at = null;
                         $transaction->save();
                         $message = 'Payment recorded once. Its expected charge is no longer reserved.';
+                        break;
+                    case 'commitment-skip':
+                        $charge = $period->commitments()->findOrFail($request->integer('id'));
+                        abort_unless($charge->is_current, 422, 'This scheduled charge was removed. Refresh the budget.');
+                        abort_if($charge->is_skipped, 422, 'This subscription occurrence was already skipped.');
+                        abort_if($charge->transaction()->exists(), 422, 'This subscription charge is already recorded as paid.');
+                        $charge->update(['is_current' => false, 'is_skipped' => true]);
+                        $message = 'Subscription occurrence skipped for this period. Future renewals are unchanged.';
                         break;
                     case 'transfer':
                         $from = $period->categories()->findOrFail($request->integer('from_id'));

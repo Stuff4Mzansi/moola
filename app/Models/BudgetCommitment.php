@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['subscription_id', 'name', 'scheduled_date', 'amount_cents', 'is_current'])]
+#[Fillable(['subscription_id', 'name', 'scheduled_date', 'amount_cents', 'is_current', 'is_skipped'])]
 class BudgetCommitment extends Model
 {
     /** @use HasFactory<BudgetCommitmentFactory> */
@@ -17,7 +17,7 @@ class BudgetCommitment extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['scheduled_date' => 'immutable_date', 'amount_cents' => 'integer', 'is_current' => 'boolean'];
+        return ['scheduled_date' => 'immutable_date', 'amount_cents' => 'integer', 'is_current' => 'boolean', 'is_skipped' => 'boolean'];
     }
 
     /** @return HasOne<BudgetTransaction, $this> */

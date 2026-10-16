@@ -46,6 +46,11 @@ class BudgetWorkspace
 
                 continue;
             }
+            if ($commitment->is_skipped) {
+                $expected->forget($key);
+
+                continue;
+            }
             if (! $force && $commitment->scheduled_date->lt(CarbonImmutable::today())) {
                 $expected->forget($key);
 

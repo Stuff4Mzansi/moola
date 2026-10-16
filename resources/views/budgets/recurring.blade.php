@@ -53,7 +53,10 @@
                                 @if($charge->transaction)
                                     <span class="badge badge-sm badge-ghost">Paid</span>
                                 @elseif($canEdit && $charge->is_current)
-                                    <button class="btn btn-xs btn-outline rounded-sm whitespace-nowrap" type="button" data-open-dialog="budget-recurring-payment" data-pay-recurring="{{ $charge->id }}" data-charge-amount="{{ $amount($charge->amount_cents) }}" data-charge-name="{{ $charge->name }}" aria-label="Record payment for {{ $charge->name }}, scheduled {{ $charge->scheduled_date->format('d M Y') }}">Record payment</button>
+                                    <div class="flex flex-wrap gap-1">
+                                        <button class="btn btn-xs btn-outline rounded-sm whitespace-nowrap" type="button" data-open-dialog="budget-recurring-payment" data-pay-recurring="{{ $charge->id }}" data-charge-amount="{{ $amount($charge->amount_cents) }}" data-charge-name="{{ $charge->name }}" aria-label="Record payment for {{ $charge->name }}, scheduled {{ $charge->scheduled_date->format('d M Y') }}">Record payment</button>
+                                        <form method="post" action="{{ $actionUrl('recurring-skip') }}" data-budget-action data-confirm="Skip this recurring expense occurrence for this period? Future scheduled payments will remain scheduled." data-confirm-title="Skip recurring expense?" data-confirm-label="Skip occurrence">@csrf<input type="hidden" name="version" value="{{ $period->version }}"><input type="hidden" name="id" value="{{ $charge->id }}"><button class="btn btn-xs btn-ghost rounded-sm whitespace-nowrap" type="submit" aria-label="Skip {{ $charge->name }} for this period">Skip this period</button></form>
+                                    </div>
                                 @else
                                     <span class="badge badge-sm badge-outline">Unpaid</span>
                                 @endif

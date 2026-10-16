@@ -76,6 +76,7 @@
             <a class="btn btn-outline btn-xs" href="{{ route('budgets.index') }}">Create a budget period</a>
         @endif
     </section>
+    @include('dashboard.tips')
     @include('dashboard.budgets')
     <details class="group rounded-sm border border-base-300 bg-base-100" x-ref="dashboardDetails">
         <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><span class="block text-sm font-semibold">Explore detailed views</span><span class="mt-0.5 block text-[11px] opacity-60">Budget breakdowns, histories, forecasts and charts</span></span><x-lucide-chevron-down class="size-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" /></summary>

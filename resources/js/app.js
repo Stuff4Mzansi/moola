@@ -3,6 +3,7 @@ import './notifications';
 import './subscription-analytics';
 import './budgets';
 import './budget-trends';
+import { registerDashboardTips } from './dashboard-tips';
 import { registerDashboardCharts } from './dashboard-charts';
 import { registerDashboardLayout } from './dashboard-layout';
 import './debts';
@@ -12,6 +13,7 @@ import './liquidity';
 import './confirm-actions';
 
 window.Alpine = Alpine;
+registerDashboardTips(Alpine);
 registerDashboardCharts(Alpine);
 registerDashboardLayout(Alpine);
 Alpine.start();
