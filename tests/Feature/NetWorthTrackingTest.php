@@ -202,11 +202,17 @@ test('snapshots provide chart data and compare the latest snapshot with the prev
         ->and($data['latest']->date->toDateString())->toBe('2026-10-04')
         ->and($data['previous']->date->toDateString())->toBe('2026-10-01');
     $this->get(route('net-worth.index'))->assertOk()->assertSee('data-worth-data', false)->assertSee('Last 6 snapshots')->assertSee('higher');
-    $this->get(route('dashboard'))->assertOk()
+    $dashboard = $this->get(route('dashboard'))->assertOk()
         ->assertSee('dashboard-net-worth', false)
         ->assertSee('Increased by R 1,000.00')
         ->assertSee('since 01 Oct 2026')
-        ->assertSee('higher');
+        ->assertSee('Net worth trend')
+        ->assertSee('data-worth-chart-for="dashboard-net-worth"', false)
+        ->assertSee('Saved snapshots only')
+        ->assertDontSee('higher than the previous snapshot');
+    $dashboardHtml = $dashboard->getContent();
+    expect(strpos($dashboardHtml, 'aria-label="Financial summary"'))->toBeLessThan(strpos($dashboardHtml, 'id="dashboard-worth-title"'))
+        ->and(strpos($dashboardHtml, 'id="dashboard-worth-title"'))->toBeLessThan(strpos($dashboardHtml, 'aria-label="Dashboard budget filter"'));
     $this->get(route('net-worth.index', ['tab' => 'history']))->assertOk()->assertSee('Asset valuation history', false);
 });
 

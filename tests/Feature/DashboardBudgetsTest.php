@@ -52,9 +52,9 @@ test('dashboard chart data includes current spending pace and uncategorised spen
         ->assertSee('Selected-period spending pace')
         ->assertSee('data-pace-chart', false)
         ->assertDontSee('data-layout-widget="budget-pace"', false)
-        ->assertSee('Selected-period spending mix')
+        ->assertDontSee('Selected-period spending mix')
         ->assertSee('Income received')
-        ->assertSee('Uncategorised');
+        ->assertDontSee('Uncategorised');
     expect(strpos($response->getContent(), 'aria-label="Budget period elapsed"'))
         ->toBeLessThan(strpos($response->getContent(), 'aria-label="Selected-period spending pace chart"'));
     $card = $response->viewData('budgetOverview')['cards']->sole();
@@ -64,6 +64,14 @@ test('dashboard chart data includes current spending pace and uncategorised spen
         ->and($card['dailyPace'][2]['spent'])->toBe(25000)
         ->and($card['dailyPace'][3]['spent'])->toBeNull()
         ->and($card['spendingMix'])->toContain(['name' => 'Uncategorised', 'amount' => 5000]);
+
+    $budgetOverview = $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'overview']))->assertOk()
+        ->assertSee('Spending mix')
+        ->assertSee('data-budget-spending-mix', false)
+        ->assertSee('Uncategorised')
+        ->assertSee('data-mix-data', false);
+    expect($budgetOverview->getContent())->toContain('"name":"Home","amount":20000')
+        ->toContain('"name":"Uncategorised","amount":5000');
 });
 
 test('next seven days includes both schedule types at the boundary and excludes recorded payments', function () {

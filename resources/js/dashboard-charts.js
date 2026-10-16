@@ -83,10 +83,9 @@ function renderMix(section, budgets) {
     const host = section.querySelector('[data-mix-chart]');
     const legend = section.querySelector('[data-mix-legend]');
     const empty = section.querySelector('[data-mix-empty]');
-    const totalNode = section.querySelector('[data-mix-total]');
     const { total, segments } = categoryMixSegments(budget.categories);
-    const svg = svgElement('svg', { viewBox: '0 0 120 120', class: 'h-full w-full', role: 'img', 'aria-labelledby': 'dashboard-spending-mix-title dashboard-spending-mix-description' });
-    svg.append(svgElement('title', { id: 'dashboard-spending-mix-description' }, `${budget.name}: spending by category from ${shortDate(budget.start)} to ${shortDate(budget.end)}.`));
+    const svg = svgElement('svg', { viewBox: '0 0 120 120', class: 'h-full w-full', role: 'img', 'aria-labelledby': 'budget-spending-mix-title budget-spending-mix-description' });
+    svg.append(svgElement('title', { id: 'budget-spending-mix-description' }, `${budget.name}: spending by category from ${shortDate(budget.start)} to ${shortDate(budget.end)}.`));
     svg.append(svgElement('circle', { cx: 60, cy: 60, r: 43, fill: 'none', class: 'stroke-base-300', 'stroke-width': 14 }));
     segments.forEach((segment) => {
         if (segment.share <= 0) return;
@@ -114,7 +113,6 @@ function renderMix(section, budgets) {
         item.append(name, value);
         return item;
     }));
-    totalNode.textContent = `${shortDate(budget.start)}–${shortDate(budget.end)}`;
     empty.hidden = total > 0;
     host.hidden = total === 0;
     legend.hidden = total === 0;
@@ -152,7 +150,7 @@ export function registerDashboardCharts(Alpine) {
         },
     }));
 
-    Alpine.data('dashboardMixChart', () => ({
+    Alpine.data('spendingMixChart', () => ({
         budgets: [],
 
         init() {

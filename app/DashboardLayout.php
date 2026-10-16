@@ -13,8 +13,8 @@ class DashboardLayout
         if (config('features.debt_tracking')) {
             $widgets['debts'] = 'Debt progress';
         }
-        $widgets += ['goals' => 'Savings goals', 'net-worth' => 'Net worth and liquidity', 'subscriptions' => 'Subscription overview',
-            'budget-trends' => 'Budget trends', 'goal-forecast' => 'Savings goal forecast', 'spending-mix' => 'Selected-period spending mix'];
+        $widgets += ['goals' => 'Savings goals', 'subscriptions' => 'Subscription overview',
+            'budget-trends' => 'Budget trends', 'goal-forecast' => 'Savings goal forecast'];
         if ($user->isAdmin()) {
             $widgets['household'] = 'Household management';
         }
@@ -25,7 +25,7 @@ class DashboardLayout
     /** @return list<array{id: string, visible: bool, width: string, height: string}> */
     public function defaults(User $user): array
     {
-        return array_map(fn (string $id): array => ['id' => $id, 'visible' => $id !== 'spending-mix', 'width' => 'wide', 'height' => 'auto'], array_keys($this->widgets($user)));
+        return array_map(fn (string $id): array => ['id' => $id, 'visible' => true, 'width' => 'wide', 'height' => 'auto'], array_keys($this->widgets($user)));
     }
 
     /** @return list<array{id: string, visible: bool, width: string, height: string}> */

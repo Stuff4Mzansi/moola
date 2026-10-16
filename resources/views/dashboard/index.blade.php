@@ -50,33 +50,45 @@
         </dl>
         <p class="mt-2 text-[10px] leading-snug opacity-55">Unreserved cash is based on assets you've classified as liquid, not a live bank balance. Budget totals stay separate because shared budgets can overlap.</p>
     </section>
-    <section class="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-base-300 bg-base-100 px-3 py-2" aria-label="Dashboard budget filter">
-        <div class="min-w-0">
-            <h2 class="text-xs font-semibold">Dashboard budget period</h2>
-            <p class="text-[10px] opacity-60">Budget widgets use this selection. Your choice is saved to your account.</p>
+    @include('dashboard.net-worth')
+    <section class="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-l-2 border-base-300 border-l-primary bg-primary/5 px-3 py-2" aria-labelledby="dashboard-budgets-title">
+        <div class="flex min-w-0 items-center gap-2">
+            <span class="grid size-7 shrink-0 place-items-center rounded-sm bg-primary/10 text-primary"><x-lucide-chart-pie class="size-4" aria-hidden="true" /></span>
+            <div class="min-w-0"><p class="text-[9px] font-semibold uppercase tracking-wider text-primary">Current budget</p><h2 id="dashboard-budgets-title" class="text-sm font-semibold leading-tight">Budget at a glance</h2><p class="mt-0.5 text-[10px] leading-tight opacity-60">Useful signals and your next move for the selected period.</p></div>
         </div>
-        @if($dashboardBudgetOptions->flatMap->periods->isNotEmpty())
-            <form method="post" action="{{ route('dashboard.budget-period.update') }}" class="flex min-w-0 items-center gap-2">
-                @csrf
-                <label for="dashboard-budget-period" class="sr-only">Choose dashboard budget and period</label>
-                <select class="select select-xs w-full max-w-80" id="dashboard-budget-period" name="period_id" x-on:change="$el.form.requestSubmit()">
-                    @foreach($dashboardBudgetOptions as $budget)
-                        @if($budget->periods->isNotEmpty())
-                            <optgroup label="{{ $budget->name }} · {{ $budget->scope === 'household' ? 'Shared' : 'Personal' }}">
-                                @foreach($budget->periods as $period)
-                                    <option value="{{ $period->id }}" @selected($dashboardPeriod?->id === $period->id)>{{ $budget->name }} · {{ $period->name }} · {{ $period->start_date->format('j M Y') }}–{{ $period->end_date->format('j M Y') }}</option>
-                                @endforeach
-                            </optgroup>
-                        @endif
-                    @endforeach
-                </select>
-                <noscript><button class="btn btn-outline btn-xs shrink-0" type="submit">Apply</button></noscript>
-            </form>
-        @else
-            <a class="btn btn-outline btn-xs" href="{{ route('budgets.index') }}">Create a budget period</a>
-        @endif
+        <a class="btn btn-xs btn-outline shrink-0" href="{{ route('budgets.index') }}">View all budgets <x-lucide-arrow-up-right class="size-3.5" aria-hidden="true" /></a>
     </section>
-    @include('dashboard.tips')
+    <section class="overflow-hidden rounded-sm border border-base-300 bg-base-100" aria-label="Dashboard budget filter">
+        <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+            <div class="min-w-0">
+                <h2 class="text-xs font-semibold">Dashboard budget period</h2>
+                <p class="text-[10px] opacity-60">Budget widgets use this selection. Your choice is saved to your account.</p>
+            </div>
+            @if($dashboardBudgetOptions->flatMap->periods->isNotEmpty())
+                <form method="post" action="{{ route('dashboard.budget-period.update') }}" class="flex min-w-0 items-center gap-2">
+                    @csrf
+                    <label for="dashboard-budget-period" class="sr-only">Choose dashboard budget and period</label>
+                    <select class="select select-xs w-full max-w-80" id="dashboard-budget-period" name="period_id" x-on:change="$el.form.requestSubmit()">
+                        @foreach($dashboardBudgetOptions as $budget)
+                            @if($budget->periods->isNotEmpty())
+                                <optgroup label="{{ $budget->name }} · {{ $budget->scope === 'household' ? 'Shared' : 'Personal' }}">
+                                    @foreach($budget->periods as $period)
+                                        <option value="{{ $period->id }}" @selected($dashboardPeriod?->id === $period->id)>{{ $budget->name }} · {{ $period->name }} · {{ $period->start_date->format('j M Y') }}–{{ $period->end_date->format('j M Y') }}</option>
+                                    @endforeach
+                                </optgroup>
+                            @endif
+                        @endforeach
+                    </select>
+                    <noscript><button class="btn btn-outline btn-xs shrink-0" type="submit">Apply</button></noscript>
+                </form>
+            @else
+                <a class="btn btn-outline btn-xs" href="{{ route('budgets.index') }}">Create a budget period</a>
+            @endif
+        </div>
+        <div class="border-t border-base-300 px-3 py-2">
+            @include('dashboard.tips')
+        </div>
+    </section>
     @include('dashboard.budgets')
     <details class="group rounded-sm border border-base-300 bg-base-100" x-ref="dashboardDetails">
         <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><span class="block text-sm font-semibold">Explore detailed views</span><span class="mt-0.5 block text-[11px] opacity-60">Budget breakdowns, histories, forecasts and charts</span></span><x-lucide-chevron-down class="size-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" /></summary>

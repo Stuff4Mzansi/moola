@@ -20,20 +20,23 @@ test('new accounts get the default dashboard and only authorized widgets', funct
         ->assertDontSee('data-layout-widget="household"', false)
         ->assertDontSee('data-layout-widget="budgets"', false)
         ->assertDontSee('data-layout-widget="category-trends"', false)
+        ->assertDontSee('data-layout-widget="net-worth"', false)
         ->assertDontSee('Category spending trends')
+        ->assertDontSee('Selected-period spending mix')
         ->assertSee('Budget at a glance');
 
-    expect(substr_count($response->getContent(), 'id="dashboard-budgets-title"'))->toBe(1)
-        ->and(strpos($response->getContent(), 'id="dashboard-budgets-title"'))->toBeLessThan(strpos($response->getContent(), 'x-ref="dashboardDetails"'));
+    $dashboardHtml = $response->getContent();
+    expect(substr_count($dashboardHtml, 'id="dashboard-budgets-title"'))->toBe(1)
+        ->and(strpos($dashboardHtml, 'id="dashboard-budgets-title"'))->toBeLessThan(strpos($dashboardHtml, 'aria-label="Dashboard budget filter"'))
+        ->and(strpos($dashboardHtml, 'aria-label="Dashboard budget filter"'))->toBeLessThan(strpos($dashboardHtml, 'x-ref="dashboardDetails"'));
 
     expect(collect($this->layout)->firstWhere('id', 'goal-forecast')['visible'])->toBeTrue()
-        ->and(collect($this->layout)->firstWhere('id', 'spending-mix')['visible'])->toBeFalse()
-        ->and(collect($this->layout)->pluck('id'))->not->toContain('budgets')->not->toContain('budget-pace');
+        ->and(collect($this->layout)->pluck('id'))->not->toContain('budgets')->not->toContain('budget-pace')->not->toContain('spending-mix');
 
     $admin = User::factory()->admin()->create();
     $this->actingAs($admin)->get(route('dashboard'))->assertOk()->assertSee('data-layout-widget="household"', false)
         ->assertSee('data-layout-widget="goal-forecast"', false)
-        ->assertSee('data-layout-widget="spending-mix"', false);
+        ->assertDontSee('data-layout-widget="spending-mix"', false);
 });
 
 test('layouts persist ordering visibility and tile sizes only for the current account', function () {
@@ -91,7 +94,7 @@ test('saved layouts recover unknown duplicate and invalid entries and append new
     expect($layout)->toHaveCount(count($this->layout))
         ->and($layout[0])->toBe(['id' => 'subscriptions', 'visible' => false, 'width' => 'medium', 'height' => 'regular'])
         ->and($layout[1]['id'])->toBe('goals')
-        ->and(array_column($layout, 'id'))->toContain('goals')->not->toContain('obsolete')->not->toContain('budgets')->not->toContain('budget-pace');
+        ->and(array_column($layout, 'id'))->toContain('goals')->not->toContain('obsolete')->not->toContain('budgets')->not->toContain('budget-pace')->not->toContain('net-worth')->not->toContain('spending-mix');
 });
 
 test('role changes remove previously saved administrator widgets', function () {

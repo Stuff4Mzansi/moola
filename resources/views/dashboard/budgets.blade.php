@@ -1,8 +1,4 @@
 <section class="space-y-3" aria-labelledby="dashboard-budgets-title">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-        <div><h2 id="dashboard-budgets-title" class="flex items-center gap-1.5 text-sm font-semibold"><x-lucide-chart-pie class="size-3.5 text-primary" aria-hidden="true" />Budget at a glance</h2><p class="mt-0.5 text-[10px] opacity-60">Useful signals and your next move for the selected period.</p></div>
-        <a class="btn btn-xs btn-outline" href="{{ route('budgets.index') }}">View all budgets <x-lucide-arrow-up-right class="size-3.5" aria-hidden="true" /></a>
-    </div>
     @if($dashboardBudgetOverview['cards']->isNotEmpty())
         <div class="grid items-stretch gap-3 xl:grid-cols-2">
             @foreach($dashboardBudgetOverview['cards'] as $card)

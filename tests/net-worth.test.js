@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
-import { selectWorthSnapshots, worthGeometry } from '../resources/js/net-worth.js';
+import { selectWorthSnapshots, worthGeometry, worthLinePath } from '../resources/js/net-worth.js';
 
 const points = [
     { date: '2026-09-01', assets: 10000, debts: 20000, netWorth: -10000 },
@@ -31,8 +31,62 @@ test('empty zero and single snapshot charts have finite scales and range selecti
     assert.equal(selectWorthSnapshots(list, '12').length, 12);
     assert.equal(selectWorthSnapshots(list, 'all').length, 15);
     assert.equal(list.length, 15);
-    assert.equal(worthGeometry(single, false, true).height, 150);
+    assert.equal(worthGeometry(single, false, true, 320).height, 186);
+    assert.equal(worthGeometry(single, false, true, 320).width, 320);
     assert.equal(worthGeometry(single, false, false, 1000).width, 1000);
+});
+
+test('compact line chart uses one shared amount scale for net worth, assets, and obligations', () => {
+    const positive = points.map((point, index) => ({ ...point, netWorth: 100000 + index * 1000 }));
+    const positiveGeometry = worthGeometry(positive, true, true, 320, 'line');
+    const expectedMaximum = Math.max(...positive.flatMap((point) => [point.netWorth, point.assets, point.debts]));
+    const expectedMinimum = Math.min(...positive.flatMap((point) => [point.netWorth, point.assets, point.debts]));
+
+    assert.ok(positiveGeometry.minimum < expectedMinimum);
+    assert.ok(positiveGeometry.maximum > expectedMaximum);
+    const expectedAssetY = positiveGeometry.bottom
+        - (positive[0].assets - positiveGeometry.minimum) / (positiveGeometry.maximum - positiveGeometry.minimum)
+            * (positiveGeometry.bottom - positiveGeometry.top);
+    assert.equal(positiveGeometry.y(positive[0].assets), expectedAssetY);
+    assert.equal(positiveGeometry.width, 320);
+    assert.equal(positiveGeometry.height, 186);
+});
+
+test('compact line chart keeps all amount ticks and scale on the left', () => {
+    const geometry = worthGeometry(points, true, true, 320, 'line');
+    const values = points.flatMap((point) => [point.netWorth, point.assets, point.debts]);
+
+    assert.ok(geometry.minimum < Math.min(...values));
+    assert.ok(geometry.maximum > Math.max(...values));
+    assert.equal(geometry.left, 48);
+    assert.equal(geometry.right, 312);
+    assert.equal(geometry.points[0].x, geometry.left);
+    assert.equal(geometry.points.at(-1).x, geometry.right);
+});
+
+test('bar chart snapshot groups use evenly spaced dates while line charts retain proportional spacing', () => {
+    const bars = worthGeometry(points, true, true, 320, 'bar');
+    const lines = worthGeometry(points, false, true, 320, 'line');
+    const barGaps = bars.points.slice(1).map((point, index) => point.x - bars.points[index].x);
+    const lineGaps = lines.points.slice(1).map((point, index) => point.x - lines.points[index].x);
+
+    assert.ok(Math.abs(barGaps[0] - barGaps[1]) < 0.00001);
+    assert.ok(Math.abs(lineGaps[1] / lineGaps[0] - 30) < 0.00001);
+    assert.equal(bars.points.length, points.length);
+});
+
+test('line paths use smooth monotone bezier curves and preserve every snapshot value', () => {
+    const geometry = worthGeometry(points, false, true, 320, 'line');
+    const path = worthLinePath(geometry.points, 'netWorth', geometry.y);
+
+    assert.match(path, /^M .+ C /);
+    assert.equal((path.match(/ C /g) || []).length, points.length - 1);
+    assert.doesNotMatch(path, /NaN|undefined/);
+    assert.ok(path.endsWith(`${geometry.points.at(-1).x} ${geometry.y(geometry.points.at(-1).snapshot.netWorth)}`));
+    geometry.points.forEach((point) => {
+        assert.ok(path.includes(`${point.x} ${geometry.y(point.snapshot.netWorth)}`));
+    });
+    assert.equal(worthLinePath(geometry.points.slice(0, 1), 'netWorth', geometry.y), '');
 });
 
 function worthHarness(reopen = null, liabilityKinds = []) {

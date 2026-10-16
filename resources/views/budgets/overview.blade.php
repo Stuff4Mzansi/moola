@@ -5,8 +5,6 @@
         @php
             $breakdownLabel = $groups->isEmpty() ? 'category' : 'group';
             $overspent = $analyticsRows->filter(fn (array $row): bool => $row['limit'] !== null && $row['spent'] > $row['limit']);
-            $largest = $analyticsRows->sortByDesc('spent')->first();
-            $chartMaximum = max(1, $analyticsRows->max('planned') ?? 0, $analyticsRows->max('spent') ?? 0);
             $totalPeriodDays = (int) $period->start_date->diffInDays($period->end_date) + 1;
             $periodDays = max(1, $totalPeriodDays - 1);
             $today = \Carbon\CarbonImmutable::today();
@@ -46,7 +44,8 @@
             $incomeY = 180 - $totals['received'] / $trendMaximum * 140;
             $receivedFundingGap = max(0, $totals['planned'] - $totals['received']);
         @endphp
-        <div class="grid gap-4 lg:grid-cols-3">
+            @include('budgets.spending-mix')
+            <div class="grid gap-4 lg:grid-cols-3">
             <section class="rounded-sm border border-base-300 bg-base-100 p-5 lg:col-span-2" aria-labelledby="budget-trend-title">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div><h3 id="budget-trend-title" class="font-semibold">Spending over time</h3><p class="mt-1 text-xs opacity-60">Cumulative expenses compared with your plan and income received</p></div>
@@ -108,18 +107,5 @@
                 </div>
             </section>
         </div>
-        <section class="rounded-sm border border-base-300 bg-base-100 p-5 sm:p-6" aria-labelledby="budget-comparison-title">
-            <div class="flex flex-wrap items-center justify-between gap-3"><div><h3 id="budget-comparison-title" class="font-semibold">Spending by {{ $breakdownLabel }}</h3><p class="mt-1 text-xs opacity-60">{{ $groups->isEmpty() ? 'Compare actual spending with your plan.' : 'Category spending combined by group. Expand a group to see its categories.' }}</p></div><div class="flex gap-4 text-xs"><span class="flex items-center gap-2"><span class="size-2.5 rounded-sm bg-base-content/15"></span>Planned</span><span class="flex items-center gap-2"><span class="size-2.5 rounded-sm bg-primary"></span>Spent</span></div></div>
-            <div class="mt-6 grid gap-x-10 gap-y-5 md:grid-cols-2">
-                @foreach($analyticsRows->sortByDesc('spent') as $row)
-                <div><div class="mb-2 flex items-start justify-between gap-3 text-sm"><span class="font-medium break-words">{{ $row['name'] }}</span><span class="shrink-0 text-xs opacity-70">{{ $money($row['spent']) }} / {{ $money($row['planned']) }}</span></div><div class="space-y-1" role="img" aria-label="{{ $row['name'] }}: {{ $money($row['spent']) }} spent, {{ $money($row['planned']) }} planned"><div class="h-2 overflow-hidden rounded-sm bg-base-200"><div class="h-full rounded-sm bg-base-content/15" style="width: {{ $row['planned'] / $chartMaximum * 100 }}%"></div></div><div class="h-2 overflow-hidden rounded-sm bg-base-200"><div @class(['h-full rounded-sm', 'bg-error' => $row['limit'] !== null && $row['spent'] > $row['limit'], 'bg-primary' => $row['limit'] === null || $row['spent'] <= $row['limit']]) style="width: {{ $row['spent'] / $chartMaximum * 100 }}%"></div></div></div>@if($row['limit'] !== null && $row['spent'] > $row['limit'])<p class="mt-1 text-xs text-error">{{ $money($row['spent'] - $row['limit']) }} over limit</p>@endif
-                    @if($groups->isNotEmpty())
-                    <details class="mt-3 text-xs"><summary class="cursor-pointer opacity-60">{{ $row['categories']->count() }} categories &middot; View breakdown</summary><ul class="mt-3 space-y-2 border-l border-base-300 pl-3">@forelse($row['categories'] as $categoryRow)<li class="flex flex-wrap justify-between gap-2"><span>{{ $categoryRow['category']->name }}</span><span>{{ $money($categoryRow['spent']) }} spent / {{ $money($categoryRow['planned']) }} planned</span></li>@empty<li class="opacity-60">No categories assigned yet.</li>@endforelse</ul></details>
-                    @endif
-                </div>
-                @endforeach
-            </div>
-            @if($largest && $largest['spent'] > 0)<p class="mt-5 text-xs opacity-60">Largest spending {{ $breakdownLabel }}: <span class="font-medium">{{ $largest['name'] }}</span> &middot; {{ $money($largest['spent']) }}</p>@endif
-        </section>
     </div>
 </div>

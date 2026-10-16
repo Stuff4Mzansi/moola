@@ -1,10 +1,18 @@
 <section class="overflow-hidden rounded-sm border border-base-300 bg-base-100" aria-labelledby="dashboard-worth-title">
-    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-base-300 px-3 py-2">
-        <div>
-            <h2 id="dashboard-worth-title" class="flex items-center gap-1.5 text-sm font-semibold"><x-lucide-chart-no-axes-combined class="size-3.5 text-primary" aria-hidden="true" />Net worth</h2>
-            <p class="mt-0.5 text-[10px] opacity-60">Assets, debts, and available cash at a glance.</p>
+    <div class="flex flex-wrap items-center justify-between gap-2 px-3 pt-3">
+        <div class="min-w-0">
+            <h2 id="dashboard-worth-title" class="flex items-center gap-1.5 text-sm font-semibold"><x-lucide-chart-no-axes-combined class="size-4 text-primary" aria-hidden="true" />Net worth trend</h2>
+            <p class="mt-0.5 text-[10px] opacity-60">Current balances and saved history, in one view.</p>
         </div>
-        <a class="btn btn-xs btn-outline" href="{{ route('net-worth.index') }}">View assets and history</a>
+        <div class="flex flex-wrap items-center gap-2">
+            @if($netWorthOverview['snapshots']->isNotEmpty())
+                <div class="join" role="group" aria-label="Chart view">
+                    <button class="btn btn-xs join-item btn-primary" type="button" data-worth-chart-mode="line" data-worth-chart-for="dashboard-net-worth" aria-pressed="true"><x-lucide-chart-line class="size-3.5" aria-hidden="true" /> Line</button>
+                    <button class="btn btn-xs join-item btn-ghost" type="button" data-worth-chart-mode="bar" data-worth-chart-for="dashboard-net-worth" aria-pressed="false"><x-lucide-chart-column class="size-3.5" aria-hidden="true" /> Bar</button>
+                </div>
+            @endif
+            <a class="btn btn-xs btn-outline" href="{{ route('net-worth.index') }}">View history</a>
+        </div>
     </div>
     @if($netWorthOverview['assets']->isEmpty() && $netWorthOverview['debts']->isEmpty() && $netWorthOverview['liabilities']->isEmpty())
         <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-3">
@@ -12,38 +20,29 @@
             <a class="link link-primary text-xs" href="{{ route('net-worth.index') }}">Get started</a>
         </div>
     @else
-        <dl class="grid grid-cols-1 divide-y divide-base-300 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-            @foreach(['Net worth' => $netWorthOverview['netWorth'], 'Assets' => $netWorthOverview['assetTotal'], config('features.debt_tracking') ? 'Debt + liabilities' : 'Liabilities' => $netWorthOverview['debtTotal'] + $netWorthOverview['liabilityTotal']] as $label => $value)
-                <div class="min-w-0 px-3 py-2 sm:border-r sm:border-base-300 last:sm:border-r-0">
-                    <dt class="text-[10px] opacity-60">{{ $label }}</dt>
-                    <dd @class(['mt-0.5 break-words text-sm font-semibold tabular-nums', 'text-error' => $label === 'Net worth' && $value < 0])>{{ $currencyPrefix }}{{ number_format($value / 100, 2) }}</dd>
-                </div>
-            @endforeach
+        <dl class="mt-2 grid grid-cols-3 gap-1.5 border-y border-base-300 bg-base-200/30 px-2 py-1.5">
+            <div class="min-w-0 rounded-sm border border-primary/20 bg-primary/5 px-2 py-1.5">
+                <dt class="flex items-center gap-1 text-[9px] font-medium leading-tight text-primary"><x-lucide-chart-no-axes-combined class="size-3 shrink-0" aria-hidden="true" /><span class="truncate">Net worth</span></dt>
+                <dd @class(['mt-0.5 break-words text-[11px] font-semibold leading-tight tabular-nums sm:text-xs', 'text-error' => $netWorthOverview['netWorth'] < 0, 'text-primary' => $netWorthOverview['netWorth'] >= 0])>{{ $currencyPrefix }}{{ number_format($netWorthOverview['netWorth'] / 100, 2) }}</dd>
+            </div>
+            <div class="min-w-0 rounded-sm border border-success/20 bg-success/5 px-2 py-1.5">
+                <dt class="flex items-center gap-1 text-[9px] font-medium leading-tight text-success"><x-lucide-wallet class="size-3 shrink-0" aria-hidden="true" /><span class="truncate">Assets</span></dt>
+                <dd class="mt-0.5 break-words text-[11px] font-semibold leading-tight tabular-nums text-success sm:text-xs">{{ $currencyPrefix }}{{ number_format($netWorthOverview['assetTotal'] / 100, 2) }}</dd>
+            </div>
+            <div class="min-w-0 rounded-sm border border-error/20 bg-error/5 px-2 py-1.5">
+                <dt class="flex items-center gap-1 text-[9px] font-medium leading-tight text-error"><x-lucide-credit-card class="size-3 shrink-0" aria-hidden="true" /><span class="truncate">{{ config('features.debt_tracking') ? 'Debts + liabilities' : 'Liabilities' }}</span></dt>
+                <dd class="mt-0.5 break-words text-[11px] font-semibold leading-tight tabular-nums text-error sm:text-xs">{{ $currencyPrefix }}{{ number_format(($netWorthOverview['debtTotal'] + $netWorthOverview['liabilityTotal']) / 100, 2) }}</dd>
+            </div>
         </dl>
-        @if($netWorthOverview['change'] !== null)
-            <p class="border-t border-base-300 px-3 py-1.5 text-[10px] opacity-65">{{ $currencyPrefix }}{{ number_format(abs($netWorthOverview['change']) / 100, 2) }} {{ $netWorthOverview['change'] >= 0 ? 'higher' : 'lower' }} than the previous snapshot from {{ $netWorthOverview['previous']->date->format('d M Y') }}.</p>
-        @endif
         @if($netWorthOverview['snapshots']->isNotEmpty())
-            <div class="border-t border-base-300 p-2.5">
+            <div class="px-2 pb-2 pt-1 sm:px-3">
                 @include('net-worth.chart', ['chartSnapshots' => $netWorthOverview['snapshots']->take(-6), 'chartId' => 'dashboard-net-worth', 'compact' => true])
             </div>
         @else
-            <p class="border-t border-base-300 px-3 py-2 text-[11px] opacity-65"><a class="link" href="{{ route('net-worth.index') }}">Save your first snapshot</a> to begin tracking net worth over time.</p>
+            <p class="px-3 py-3 text-[11px] opacity-65"><a class="link" href="{{ route('net-worth.index') }}">Save your first snapshot</a> to begin tracking trends over time.</p>
         @endif
         @if($netWorthOverview['stale'] > 0)
-            <p class="border-t border-base-300 px-3 py-2 text-[11px] text-warning">{{ $netWorthOverview['stale'] }} assets have older valuations. <a class="link" href="{{ route('net-worth.index', ['tab' => 'assets']) }}">Refresh their values</a>.</p>
+            <p class="border-t border-base-300 px-3 py-1.5 text-[10px] text-warning">{{ $netWorthOverview['stale'] }} assets have older valuations. <a class="link" href="{{ route('net-worth.index', ['tab' => 'assets']) }}">Refresh their values</a>.</p>
         @endif
-        <div class="flex flex-wrap items-center justify-between gap-2 border-t border-base-300 bg-base-200/40 px-3 py-2">
-            <div class="min-w-0 text-[11px]">
-                <p><span class="opacity-60">Unreserved cash:</span> <span class="font-semibold tabular-nums">{{ $currencyPrefix }}{{ number_format($liquidityOverview['free'] / 100, 2) }}</span> <span class="mx-1 opacity-40">·</span> <span class="opacity-60">Emergency runway:</span> <span class="font-semibold">{{ $liquidityOverview['runway'] === null ? 'Set up reserves and essentials' : $liquidityOverview['runway'].' months' }}</span></p>
-                @if($liquidityOverview['unknown'] > 0)
-                    <p class="mt-1 text-[10px] text-warning">Classify access for {{ $liquidityOverview['unknown'] }} assets to complete the cash picture.</p>
-                @elseif($liquidityOverview['cashGap'] > 0)
-                    <p class="mt-1 text-[10px] text-warning">Forecast cash gap: {{ $currencyPrefix }}{{ number_format($liquidityOverview['cashGap'] / 100, 2) }} on {{ \Carbon\CarbonImmutable::parse($liquidityOverview['lowest']['date'])->format('d M') }}. Check assumptions and upcoming payments.</p>
-                @endif
-            </div>
-            <a class="btn btn-xs btn-outline shrink-0" href="{{ route('net-worth.index', ['tab' => 'liquidity']) }}">Plan cash flow</a>
-        </div>
-        <p class="border-t border-base-300 px-3 py-1.5 text-[10px] leading-snug opacity-60">Latest recorded asset values minus {{ config('features.debt_tracking') ? 'tracked debt and liabilities' : 'manual liabilities' }}. Your records only.</p>
     @endif
 </section>

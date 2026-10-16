@@ -3,8 +3,8 @@
         ? route('budgets.index', ['period' => $dashboardPeriod->id])
         : route('budgets.index');
 @endphp
-<section class="grid overflow-hidden rounded-sm border border-base-300 bg-base-100 shadow-sm sm:grid-cols-[7.5rem_minmax(0,1fr)]" aria-label="Budget tips" data-dashboard-tips x-data="dashboardTips" x-on:mouseenter="pauseForInteraction()" x-on:mouseleave="resumeAfterInteraction()" x-on:focusin="pauseForInteraction()" x-on:focusout="resumeAfterInteraction($event)">
-    <div class="flex items-center gap-3 bg-primary px-4 py-3 text-primary-content sm:flex-col sm:justify-center sm:gap-2 sm:px-3 sm:py-5" aria-hidden="true">
+<section class="grid overflow-hidden sm:grid-cols-[7.5rem_minmax(0,1fr)] py-1" aria-label="Budget tips" data-dashboard-tips x-data="dashboardTips" x-on:mouseenter="pauseForInteraction()" x-on:mouseleave="resumeAfterInteraction()" x-on:focusin="pauseForInteraction()" x-on:focusout="resumeAfterInteraction($event)">
+    <div class="flex items-center gap-3 rounded-sm bg-primary px-4 py-3 text-primary-content sm:rounded-sm sm:flex-col sm:justify-center sm:gap-2 sm:px-3 sm:py-5" aria-hidden="true">
         <span class="grid size-10 shrink-0 place-items-center rounded-full bg-primary-content/15 sm:size-14">
             <x-lucide-lightbulb class="size-6 sm:size-8" />
         </span>

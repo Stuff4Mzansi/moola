@@ -278,7 +278,7 @@ test('expenses outside the period and categories from another period cannot be u
 });
 
 test('budget opens on a read-only analytics overview with setup in separate tabs', function () {
-    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('Spending over time')->assertSee('Spending by category')->assertSee('At a glance');
+    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('Spending over time')->assertSee('Spending mix')->assertDontSee('Spending by category')->assertSee('At a glance');
     $document = new DOMDocument;
     @$document->loadHTML($response->getContent());
     $xpath = new DOMXPath($document);
@@ -295,12 +295,12 @@ test('analytics compares recorded spending against category limits and flags ove
     $food = $this->period->categories()->where('name', 'Food')->sole();
     $food->update(['allocated_cents' => 10000]);
     BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $food->id, 'amount_cents' => 15000, 'date' => '2026-10-02']);
-    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('1 category over limit')->assertSee('R 50.00 over limit')->assertSee('150.0% of your planned spending')->assertSee('Largest spending category:');
+    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('1 category over limit')->assertSee('R 50.00 over limit')->assertSee('150.0% of your planned spending')->assertDontSee('Largest spending category:');
     $document = new DOMDocument;
     @$document->loadHTML($response->getContent());
     $xpath = new DOMXPath($document);
     expect($xpath->query('//*[@data-budget-panel="overview"]//*[local-name()="svg" and @role="img"]')->length)->toBe(1);
-    expect($xpath->query('//*[@data-budget-panel="overview"]//*[@role="img" and contains(@aria-label,"Food")]')->item(0)->getAttribute('aria-label'))->toBe('Food: R 150.00 spent, R 100.00 planned');
+    expect($xpath->query('//*[@data-budget-panel="overview"]//*[@role="img" and contains(@aria-label,"Food")]')->length)->toBe(0);
 });
 
 test('budget name can be edited separately from its period names and financial plan', function () {

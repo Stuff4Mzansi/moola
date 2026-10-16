@@ -139,7 +139,7 @@ test('subscription payments contribute once to their assigned group', function (
     expect(app(BudgetWorkspace::class)->data($this->period->fresh())['groupRows']->sole())->toMatchArray(['spent' => 9900, 'upcoming' => 0, 'available' => 90100]);
 });
 
-test('overview charts aggregate groups and retain ungrouped spending with category drill-down', function () {
+test('overview omits the group spending chart while retaining group totals', function () {
     $needs = BudgetGroup::factory()->create(['budget_period_id' => $this->period->id, 'name' => 'Needs', 'percentage_basis_points' => 5000]);
     $wants = BudgetGroup::factory()->create(['budget_period_id' => $this->period->id, 'name' => 'Wants']);
     BudgetGroup::factory()->create(['budget_period_id' => $this->period->id, 'name' => 'Savings', 'percentage_basis_points' => 2000]);
@@ -150,16 +150,14 @@ test('overview charts aggregate groups and retain ungrouped spending with catego
         $category->save();
         BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $category->id, 'amount_cents' => $spent, 'date' => '2026-10-03']);
     }
-    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('Spending by group')->assertSee('Largest spending group:')->assertDontSee('Spending by category');
+    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('Your group balance')->assertDontSee('Spending by group')->assertDontSee('Largest spending group:');
     $rows = $response->viewData('analyticsRows')->keyBy('name');
     expect($rows['Needs'])->toMatchArray(['spent' => 30000, 'planned' => 40000])->and($rows['Ungrouped']['spent'])->toBe(7000)->and($rows['Savings']['spent'])->toBe(0)->and($rows->sum('spent'))->toBe($response->viewData('totals')['spent']);
     $document = new DOMDocument;
     @$document->loadHTML($response->getContent());
     $xpath = new DOMXPath($document);
-    expect($xpath->query('//*[@aria-labelledby="budget-comparison-title"]//*[@role="img"]')->length)->toBe(4);
-    expect($xpath->query('//*[@aria-labelledby="budget-comparison-title"]//*[@role="img" and @aria-label="Needs: R 300.00 spent, R 400.00 planned"]')->length)->toBe(1);
-    expect($xpath->query('//*[@aria-labelledby="budget-comparison-title"]//*[@role="img" and contains(@aria-label,"Food")]')->length)->toBe(0);
-    expect($xpath->query('//*[@aria-labelledby="budget-comparison-title"]//details//li[contains(.,"Food")]')->length)->toBe(1);
+    expect($xpath->query('//*[@aria-labelledby="budget-comparison-title"]')->length)->toBe(0);
+    expect($xpath->query('//*[@data-budget-live="group-analytics"]//*[@data-group-balance-row]')->length)->toBe(3);
 });
 
 test('grouped overview warnings use group percentage limits instead of category allocations', function () {
@@ -177,9 +175,9 @@ test('grouped overview warnings use group percentage limits instead of category 
 test('analytics switches back to category rows after the last group is removed', function () {
     $group = BudgetGroup::factory()->create(['budget_period_id' => $this->period->id, 'name' => 'Needs']);
     $this->period->categories()->update(['budget_group_id' => $group->id]);
-    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('Spending by group');
+    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('Your group balance')->assertDontSee('Spending by group');
     expect($response->viewData('analyticsRows')->pluck('name')->all())->toBe(['Needs']);
     $response = $this->postJson(groupAction($this->period, 'group-remove'), groupPayload($this->period, ['id' => $group->id]))->assertOk();
-    expect($response->json('html'))->toContain('Spending by category')->not->toContain('Spending by group');
+    expect($response->json('html'))->not->toContain('Spending by group')->not->toContain('Your group balance');
     $this->get(route('budgets.index'))->assertOk()->assertViewHas('analyticsRows', fn (Collection $rows): bool => $rows->count() === 7);
 });
