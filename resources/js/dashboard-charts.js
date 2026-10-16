@@ -62,7 +62,7 @@ function renderPace(section, budgets) {
     if (budget.received > 0) {
         svg.append(svgElement('line', { x1: left, x2: right, y1: y(budget.received), y2: y(budget.received), class: 'stroke-success', 'stroke-width': 1.5, 'stroke-dasharray': '2 4', opacity: 0.8 }));
     }
-    svg.append(svgElement('path', { d: linePath(budget.points, 'planned', geometry), fill: 'none', class: 'stroke-primary', 'stroke-width': 2, 'stroke-dasharray': '6 4' }));
+    svg.append(svgElement('path', { d: linePath(budget.points, 'planned', geometry), fill: 'none', class: 'stroke-sky-500', 'stroke-width': 2, 'stroke-dasharray': '1 4', 'stroke-linecap': 'round' }));
     svg.append(svgElement('path', { d: linePath(budget.points, 'spent', geometry), fill: 'none', class: 'stroke-orange-600', 'stroke-width': 2.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
     const targetTicks = width < 380 ? 3 : width < 600 ? 4 : 6;
     const tickInterval = Math.max(1, Math.ceil((budget.points.length - 1) / targetTicks));

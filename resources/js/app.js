@@ -3,6 +3,7 @@ import './notifications';
 import './subscription-analytics';
 import './budgets';
 import './budget-trends';
+import { budgetNudgeDeck } from './budget-nudges';
 import { registerDashboardTips } from './dashboard-tips';
 import { registerDashboardCharts } from './dashboard-charts';
 import { registerDashboardLayout } from './dashboard-layout';
@@ -13,6 +14,7 @@ import './liquidity';
 import './confirm-actions';
 
 window.Alpine = Alpine;
+Alpine.data('budgetNudgeDeck', budgetNudgeDeck);
 registerDashboardTips(Alpine);
 registerDashboardCharts(Alpine);
 registerDashboardLayout(Alpine);

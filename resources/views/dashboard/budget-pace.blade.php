@@ -5,7 +5,7 @@
     </div>
     <div class="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[9px] opacity-75">
         <span class="inline-flex items-center gap-1"><span class="h-0.5 w-4 bg-orange-600" aria-hidden="true"></span>Recorded spending</span>
-        <span class="inline-flex items-center gap-1"><span class="h-0.5 w-4 border-t border-dashed border-primary" aria-hidden="true"></span>Budget pace</span>
+        <span class="inline-flex items-center gap-1"><span class="h-0.5 w-4 border-t border-dotted border-sky-500" aria-hidden="true"></span>Budget pace</span>
         <span class="inline-flex items-center gap-1"><span class="h-0.5 w-4 border-t border-dotted border-success" aria-hidden="true"></span>Income received</span>
     </div>
     <div class="mt-1 w-full" role="region" aria-label="Selected-period spending pace chart" tabindex="0" data-pace-chart></div>

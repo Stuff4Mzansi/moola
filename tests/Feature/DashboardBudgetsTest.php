@@ -51,6 +51,7 @@ test('dashboard chart data includes current spending pace and uncategorised spen
     $response = $this->get(route('dashboard'))->assertOk()
         ->assertSee('Selected-period spending pace')
         ->assertSee('data-pace-chart', false)
+        ->assertSee('border-dotted border-sky-500', false)
         ->assertDontSee('data-layout-widget="budget-pace"', false)
         ->assertDontSee('Selected-period spending mix')
         ->assertSee('Income received')

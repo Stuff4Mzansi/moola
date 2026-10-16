@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\BudgetMoney;
 use App\BudgetNotifications;
+use App\BudgetPeriodNudges;
 use App\BudgetPeriodReview;
 use App\BudgetRecurringExpenses;
 use App\BudgetWorkspace;
@@ -31,7 +32,7 @@ use Illuminate\View\View;
 
 class BudgetController extends Controller
 {
-    public function __construct(private BudgetWorkspace $workspace) {}
+    public function __construct(private BudgetWorkspace $workspace, private BudgetPeriodNudges $nudges) {}
 
     /** @return Collection<int, Budget> */
     private function accessibleBudgets(User $user): Collection
@@ -68,6 +69,7 @@ class BudgetController extends Controller
 
         return [...$data,
             'periodReview' => app(BudgetPeriodReview::class)->build($period, $data),
+            'periodNudges' => $this->nudges->forPeriod($period, $data, $request->user()),
             'notificationTypes' => BudgetNotifications::TYPES,
             'emailAvailable' => MailSetting::query()->where('id', 1)->where('enabled', true)->exists(),
             'emailEnabled' => BudgetNotificationPreference::query()->where('budget_id', $period->budget_id)->where('user_id', $request->user()->id)->value('email_enabled') ?? false,
@@ -78,6 +80,15 @@ class BudgetController extends Controller
             'members' => $period->budget->members()->get(),
             'availableUsers' => Gate::allows('share', $period->budget) && $period->budget->scope === 'household' ? User::query()->where('id', '!=', $period->budget->user_id)->get(['id', 'name']) : collect(),
         ];
+    }
+
+    public function updateNudge(Request $request, BudgetPeriod $period, string $nudge, string $action): RedirectResponse
+    {
+        Gate::authorize('view', $period->budget);
+        $data = $this->workspace->data($period);
+        $this->nudges->update($period, $data, $request->user(), $nudge, $action);
+
+        return redirect()->route('budgets.index', ['period' => $period->id])->with('status', $action === 'dismiss' ? 'Nudge dismissed for this period.' : 'Nudge snoozed for 7 days.');
     }
 
     private function response(Request $request, BudgetPeriod $period, string $message = 'Saved.', ?int $undoId = null): JsonResponse|RedirectResponse

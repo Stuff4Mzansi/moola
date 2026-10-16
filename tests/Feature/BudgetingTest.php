@@ -62,9 +62,11 @@ test('overview chart compares the plan with received income even before expenses
     $this->period->categories()->where('name', 'Food')->update(['allocated_cents' => 80000]);
     $this->period->incomes()->sole()->update(['received_cents' => 40000, 'received_date' => '2026-10-02']);
     $this->get(route('budgets.index', ['period' => $this->period->id]))->assertOk()
-        ->assertSee('data-budget-income-line x1="40" y1="110" x2="660" y2="110" class="stroke-green-600"', false)
+        ->assertSee('data-budget-income-line x1="64" y1="110" x2="696" y2="110" class="stroke-green-600"', false)
+        ->assertSee('data-budget-pace-line x1="64" y1="180" x2="696" y2="40" class="stroke-sky-500" stroke-width="1.5" stroke-dasharray="1 4" stroke-linecap="round"', false)
         ->assertSee('Plan needs funding')->assertSee('R 400.00')->assertSee('above income received so far')
-        ->assertSee('Income received: R 400.00')->assertDontSee('Your spending story starts here');
+        ->assertSee('Income received: R 400.00')->assertDontSee('Your spending story starts here')
+        ->assertDontSee('data-budget-out-of-funds', false);
 });
 
 test('overview income line scales above the plan and excludes unreceived expected income', function () {
@@ -72,30 +74,38 @@ test('overview income line scales above the plan and excludes unreceived expecte
     $this->period->incomes()->sole()->update(['received_cents' => 150000, 'received_date' => '2026-10-02']);
     BudgetIncome::factory()->create(['budget_period_id' => $this->period->id, 'expected_cents' => 900000, 'received_cents' => 0]);
     $this->get(route('budgets.index', ['period' => $this->period->id]))->assertOk()
-        ->assertSee('data-budget-income-line x1="40" y1="40" x2="660" y2="40"', false)
+        ->assertSee('data-budget-income-line x1="64" y1="40" x2="696" y2="40"', false)
         ->assertSee('Income received: R 1,500.00')->assertDontSee('data-budget-received-gap', false);
 });
 
 test('income autosaves refresh the overview funding line and show zero when nothing is received', function () {
     $this->period->categories()->where('name', 'Food')->update(['allocated_cents' => 80000]);
     $this->get(route('budgets.index', ['period' => $this->period->id]))->assertOk()
-        ->assertSee('data-budget-income-line x1="40" y1="180" x2="660" y2="180"', false)
+        ->assertSee('data-budget-income-line x1="64" y1="180" x2="696" y2="180"', false)
         ->assertSee('Plan needs funding')->assertSee('R 800.00')->assertSee('above income received so far');
     $response = $this->postJson(budgetActionUrl($this->period, 'income-save'), budgetActionPayload($this->period, ['name' => 'Received payment', 'expected_amount' => '800', 'received_amount' => '800', 'received_date' => '2026-10-03']))->assertOk();
     expect($response->json('html'))->toContain('Income received: R 800.00')
-        ->toContain('data-budget-income-line x1="40" y1="40" x2="660" y2="40"')
+        ->toContain('data-budget-income-line x1="64" y1="40" x2="696" y2="40"')
         ->not->toContain('data-budget-received-gap');
 });
 
 test('overview spending curve retains exact daily totals with bounded smooth segments', function () {
     $food = $this->period->categories()->where('name', 'Food')->sole();
     $food->update(['allocated_cents' => 100000]);
+    $this->period->incomes()->sole()->update(['received_cents' => 15000, 'received_date' => '2026-10-01']);
     BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $food->id, 'amount_cents' => 10000, 'date' => '2026-10-02']);
     BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $food->id, 'amount_cents' => 5000, 'date' => '2026-10-02']);
     BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $food->id, 'amount_cents' => 15000, 'date' => '2026-10-03']);
     $response = $this->get(route('budgets.index', ['period' => $this->period->id]))->assertOk()
         ->assertSee('02 Oct: cumulative spending R 150.00')->assertSee('03 Oct: cumulative spending R 300.00')
+        ->assertSee('data-budget-trend-amount', false)->assertSee('data-budget-trend-date', false)
+        ->assertSee('R 0.00')->assertSee('01 Oct')->assertSee('08 Oct')->assertSee('31 Oct')
+        ->assertSee('data-budget-out-of-funds', false)
+        ->assertSee('Out of funds: cumulative expenses first equaled or exceeded income received on 02 Oct')
+        ->assertSee('x1="85.07" y1="40" x2="85.07" y2="180"', false)
         ->assertSee('stroke-width="1.5" stroke-dasharray="5 5"', false);
+    expect(substr_count($response->getContent(), 'data-budget-trend-amount'))->toBe(5)
+        ->and(substr_count($response->getContent(), 'data-budget-trend-date'))->toBe(5);
     preg_match('/data-budget-spending-line d="([^"]+)"/', $response->getContent(), $matches);
     preg_match_all('/C ([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+)/', $matches[1], $segments, PREG_SET_ORDER);
     expect($segments)->toHaveCount(2);
@@ -106,13 +116,24 @@ test('overview spending curve retains exact daily totals with bounded smooth seg
     expect((float) $segments[1][6])->toBe(138.0);
 });
 
+test('overview budget pace line distributes planned spending evenly across the period', function () {
+    $food = $this->period->categories()->where('name', 'Food')->sole();
+    $food->update(['allocated_cents' => 100000]);
+    BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $food->id, 'amount_cents' => 10000, 'date' => '2026-10-02']);
+
+    $this->get(route('budgets.index', ['period' => $this->period->id]))->assertOk()
+        ->assertSee('Budget pace')
+        ->assertSee('data-budget-pace-line x1="64" y1="180" x2="696" y2="40" class="stroke-sky-500" stroke-width="1.5" stroke-dasharray="1 4" stroke-linecap="round"', false)
+        ->assertSee('Budget pace: planned spending rises evenly from R 0.00 at period start to R 1,000.00 by 31 Oct.');
+});
+
 test('smooth spending charts handle a single day and expenses on the first day', function () {
     $this->period->update(['end_date' => '2026-10-01']);
     $food = $this->period->categories()->where('name', 'Food')->sole();
     $food->update(['allocated_cents' => 10000]);
     BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $food->id, 'amount_cents' => 5000, 'date' => '2026-10-01']);
     $this->get(route('budgets.index', ['period' => $this->period->id]))->assertOk()
-        ->assertSee('data-budget-spending-line d="M 40 110 L 40 110"', false)
+        ->assertSee('data-budget-spending-line d="M 64 110 L 64 110"', false)
         ->assertSee('01 Oct: cumulative spending R 50.00');
 });
 
@@ -284,7 +305,7 @@ test('budget opens on a read-only analytics overview with setup in separate tabs
     $xpath = new DOMXPath($document);
     expect($xpath->query('//*[@role="tab" and @aria-selected="true"]')->item(0)->getAttribute('data-budget-tab'))->toBe('overview');
     expect($xpath->query('//*[@data-budget-panel="overview"]')->item(0)->hasAttribute('hidden'))->toBeFalse();
-    expect($xpath->query('//*[@data-budget-panel="overview"]//form')->length)->toBe(0);
+    expect($xpath->query('//*[@data-budget-panel="overview"]//form[not(contains(@action, "/nudges/"))]')->length)->toBe(0);
     foreach (['plan', 'expenses', 'subscriptions'] as $tab) {
         expect($xpath->query('//*[@data-budget-panel="'.$tab.'"]')->item(0)->hasAttribute('hidden'))->toBeTrue();
     }
