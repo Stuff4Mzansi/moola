@@ -48,6 +48,7 @@ test('dashboard separates actual spending from recurring forecasts and uses work
 
 test('dashboard chart data includes current spending pace and uncategorised spending', function () {
     BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => null, 'amount_cents' => 5000, 'date' => '2026-10-02']);
+    expect(app(BudgetWorkspace::class)->data($this->period->fresh())['dailySpending']->all())->toBe(['2026-10-02' => 5000, '2026-10-03' => 20000]);
     $response = $this->get(route('dashboard'))->assertOk()
         ->assertSee('Selected-period spending pace')
         ->assertSee('data-pace-chart', false)

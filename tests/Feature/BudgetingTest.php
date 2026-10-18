@@ -9,7 +9,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 uses(RefreshDatabase::class);
 
@@ -34,9 +34,21 @@ function budgetActionUrl(BudgetPeriod $period, string $action): string
 }
 
 test('budget workspace contains same-page entry controls and the expected totals', function () {
-    $this->get(route('budgets.index'))->assertOk()->assertSee('Your category plan')->assertSee('Copy to next period')->assertSee('Change dates')->assertSee('Add expense')
+    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('Your category plan')->assertSee('Copy to next period')->assertSee('Change dates')->assertSee('Add expense')
         ->assertViewHas('totals', fn (array $totals): bool => $totals['expected'] === 100000 && $totals['received'] === 0 && $totals['spent'] === 0);
+    $document = new DOMDocument;
+    @$document->loadHTML($response->getContent());
+    $xpath = new DOMXPath($document);
+    expect($xpath->query('//*[@data-budget-live="summary"]//*[@data-budget-summary-tile]')->length)->toBe(4)
+        ->and($xpath->query('//*[@data-budget-live="summary"]//*[self::progress[@aria-label] and @aria-valuetext]')->length)->toBeGreaterThan(0);
     expect($this->period->categories)->toHaveCount(7);
+});
+
+test('summary explains how expected money left and after-charges amounts are calculated', function () {
+    $this->get(route('budgets.index'))
+        ->assertOk()
+        ->assertSee('Expected income minus recorded spending')
+        ->assertSee('after unpaid charges also subtracts unpaid scheduled expenses');
 });
 
 test('category allocations autosave exact cents and manual limits follow the submitted value', function () {
@@ -53,7 +65,8 @@ test('income sources distinguish expected and received funds', function () {
     BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $food->id, 'amount_cents' => 4000, 'date' => '2026-10-03']);
     $this->get(route('budgets.index'))
         ->assertOk()
-        ->assertSee('Actual money left: R 210.00')
+        ->assertSee('Actual money left:')
+        ->assertSee('R 210.00')
         ->assertViewHas('totals', fn (array $totals): bool => $totals['expected'] === 150000 && $totals['received'] === 25000 && $totals['spent'] === 4000);
     $this->postJson(budgetActionUrl($this->period, 'income-save'), budgetActionPayload($this->period, ['name' => 'Missing date', 'expected_amount' => '100', 'received_amount' => '20']))->assertUnprocessable()->assertJsonValidationErrors('received_date');
 });
@@ -355,11 +368,67 @@ test('recorded expenses default to descending dates and reorder after a date edi
     $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'expenses']))->assertOk()
         ->assertSee('aria-sort="descending"', false)
         ->assertSeeInOrder(['Later same day entry', 'Newest dated purchase', 'Middle dated purchase', 'Oldest dated purchase'])
-        ->assertViewHas('transactions', fn (Collection $transactions): bool => $transactions->modelKeys() === [$sameDay->id, $newest->id, $middle->id, $oldest->id]);
+        ->assertViewHas('transactions', fn (LengthAwarePaginator $transactions): bool => $transactions->getCollection()->modelKeys() === [$sameDay->id, $newest->id, $middle->id, $oldest->id]);
 
     $response = $this->postJson(budgetActionUrl($this->period, 'expense-save'), budgetActionPayload($this->period, ['id' => $oldest->id, 'category_id' => $food->id, 'amount' => '150', 'date' => '2026-10-25', 'description' => 'Moved dated purchase']))->assertOk();
     $html = $response->json('html');
     expect(strpos($html, 'Moved dated purchase'))->toBeLessThan(strpos($html, 'Later same day entry'));
     $this->get(route('budgets.index'))->assertOk()
-        ->assertViewHas('transactions', fn (Collection $transactions): bool => $transactions->modelKeys() === [$oldest->id, $sameDay->id, $newest->id, $middle->id]);
+        ->assertViewHas('transactions', fn (LengthAwarePaginator $transactions): bool => $transactions->getCollection()->modelKeys() === [$oldest->id, $sameDay->id, $newest->id, $middle->id]);
+});
+
+test('expense history is paginated and search and category filters run on the server', function () {
+    $food = $this->period->categories()->where('name', 'Food')->sole();
+    $transport = $this->period->categories()->where('name', 'Transport')->sole();
+    foreach (range(1, 55) as $number) {
+        BudgetTransaction::factory()->create([
+            'budget_period_id' => $this->period->id,
+            'budget_category_id' => $number % 2 === 0 ? $food->id : $transport->id,
+            'date' => '2026-10-'.str_pad((string) (($number % 28) + 1), 2, '0', STR_PAD_LEFT),
+            'description' => 'Purchase '.$number,
+        ]);
+    }
+
+    $firstPage = $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'expenses']))
+        ->assertOk()
+        ->assertSee('Showing 1–50 of 55 expenses')
+        ->assertViewHas('transactions', fn (LengthAwarePaginator $transactions): bool => $transactions->count() === 50 && $transactions->total() === 55);
+    expect($firstPage->viewData('transactions')->nextPageUrl())->toContain('tab=expenses');
+    $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'expenses', 'expense_page' => 2]))
+        ->assertOk()
+        ->assertSee('Showing 51–55 of 55 expenses')
+        ->assertViewHas('transactions', fn (LengthAwarePaginator $transactions): bool => $transactions->count() === 5 && $transactions->currentPage() === 2);
+
+    $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'expenses', 'expense_search' => 'Purchase 1']))
+        ->assertOk()
+        ->assertSee('Purchase 1')
+        ->assertViewHas('transactions', fn (LengthAwarePaginator $transactions): bool => $transactions->total() === 11 && $transactions->getCollection()->every(fn (BudgetTransaction $transaction): bool => str_contains($transaction->description, 'Purchase 1')));
+    $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'expenses', 'expense_category' => $food->id]))
+        ->assertOk()
+        ->assertSee('of 27 expenses')
+        ->assertViewHas('transactions', fn (LengthAwarePaginator $transactions): bool => $transactions->getCollection()->every(fn (BudgetTransaction $transaction): bool => $transaction->budget_category_id === $food->id));
+});
+
+test('expense filters persist through AJAX mutations and paginate URLs', function () {
+    $food = $this->period->categories()->where('name', 'Food')->sole();
+    $matching = BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $food->id, 'description' => 'Market vegetables']);
+    BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'description' => 'Taxi fare']);
+    $url = budgetActionUrl($this->period, 'expense-save').'?'.http_build_query([
+        'period' => $this->period->id,
+        'tab' => 'expenses',
+        'expense_search' => 'Market',
+        'expense_category' => $food->id,
+    ]);
+
+    $response = $this->postJson($url, budgetActionPayload($this->period, [
+        'id' => $matching->id,
+        'category_id' => $food->id,
+        'amount' => '15',
+        'date' => '2026-10-03',
+        'description' => 'Market tomatoes',
+    ]))->assertOk();
+
+    expect($response->json('url'))->toContain('tab=expenses')->toContain('expense_search=Market')->toContain('expense_category='.$food->id)
+        ->and($response->json('html'))->toContain('Market tomatoes')
+        ->not->toContain('Taxi fare');
 });

@@ -15,7 +15,6 @@
             $countdownDays = max(0, (int) $today->diffInDays($periodUpcoming ? $period->start_date : $period->end_date, false));
             $countdownLabel = $periodUpcoming ? ($countdownDays === 1 ? 'day to start' : 'days to start') : ($countdownDays === 1 ? 'day left' : 'days left');
             $spendingPercent = $totals['planned'] > 0 ? round($totals['spent'] / $totals['planned'] * 100) : null;
-            $dailySpending = $transactions->groupBy(fn (\App\Models\BudgetTransaction $transaction): string => $transaction->date->toDateString())->sortKeys();
             $trendMaximum = max(1, $totals['spent'], $totals['planned'], $totals['received']);
             $trendPlotLeft = 64;
             $trendPlotRight = 696;
@@ -49,9 +48,9 @@
             }
             foreach ($dailySpending as $date => $dailyTransactions) {
                 $x = $trendPlotLeft + (int) $period->start_date->diffInDays(\Carbon\CarbonImmutable::parse($date)) / $periodDays * $trendPlotWidth;
-                $runningSpent += $dailyTransactions->sum('amount_cents');
+                $runningSpent += $dailyTransactions;
                 $newY = $trendPlotBottom - $runningSpent / $trendMaximum * $trendPlotHeight;
-                if ($date === $period->start_date->toDateString()) {
+                if (\Carbon\CarbonImmutable::parse($date)->toDateString() === $period->start_date->toDateString()) {
                     $trendPath = 'M '.$trendPlotLeft.' '.round($newY, 2);
                 } else {
                     $controlOffset = ($x - $previousX) / 3;
@@ -67,8 +66,8 @@
                 $previousX = $x;
                 $previousY = $newY;
             }
-            $lastDate = $transactions->max('date');
-            $trendEnd = max($period->start_date->toDateString(), min($period->end_date->toDateString(), max(now()->toDateString(), $lastDate?->toDateString() ?? '')));
+            $lastDate = $dailySpending->keys()->last();
+            $trendEnd = max($period->start_date->toDateString(), min($period->end_date->toDateString(), max(now()->toDateString(), $lastDate ?? '')));
             $endX = $trendPlotLeft + (int) $period->start_date->diffInDays(\Carbon\CarbonImmutable::parse($trendEnd)) / $periodDays * $trendPlotWidth;
             $trendPath .= ' L '.round($endX, 2).' '.round($trendPlotBottom - $runningSpent / $trendMaximum * $trendPlotHeight, 2);
             $planY = $trendPlotBottom - $totals['planned'] / $trendMaximum * $trendPlotHeight;
@@ -90,7 +89,7 @@
                         <div class="mt-1 flex items-center justify-between gap-3 text-[10px] opacity-60"><span>{{ $elapsedPercent }}% elapsed</span><time datetime="{{ ($periodUpcoming ? $period->start_date : $period->end_date)->toDateString() }}">{{ $periodUpcoming ? 'Starts' : ($periodEnded ? 'Ended' : 'Ends') }} {{ ($periodUpcoming ? $period->start_date : $period->end_date)->format('d M') }}</time></div>
                     </div>
                 </div>
-                @if($transactions->isNotEmpty() || $totals['planned'] > 0 || $totals['received'] > 0)
+                @if($dailySpending->isNotEmpty() || $totals['planned'] > 0 || $totals['received'] > 0)
                 <div class="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs"><span class="inline-flex items-center gap-2"><span class="h-0.5 w-5 bg-orange-600"></span>Recorded spending</span>@if($totals['planned'] > 0)<span class="inline-flex items-center gap-2"><span class="w-5 border-t-2 border-dotted border-sky-500"></span>Budget pace</span>@endif<span class="inline-flex items-center gap-2"><span class="w-5 border-t-2 border-dashed border-primary/40"></span>Planned limit</span><span class="inline-flex items-center gap-2"><span class="w-5 border-t-2 border-dashed border-green-600"></span>Income received</span></div>
                 <div class="mt-5 overflow-x-auto" tabindex="0" role="region" aria-label="Spending chart with amounts and dates; scroll horizontally to view all labels">
                 <svg viewBox="0 0 700 225" class="block w-full min-w-[40rem] text-primary sm:min-w-0" role="img" aria-labelledby="budget-trend-title budget-trend-description">

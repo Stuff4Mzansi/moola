@@ -86,9 +86,9 @@ class BudgetPeriodNudges
         if ($period->start_date->lte($today) && $period->end_date->gte($today)) {
             $periodDays = (int) $period->start_date->diffInDays($period->end_date) + 1;
             $elapsedDays = max(1, min($periodDays, (int) $period->start_date->diffInDays($today) + 1));
-            $spentToDate = $data['transactions']
-                ->filter(fn ($transaction): bool => $transaction->date->lte($today))
-                ->sum('amount_cents');
+            $spentToDate = $data['dailySpending']
+                ->filter(fn (int $amount, string $date): bool => $date <= $today->toDateString())
+                ->sum();
             $expectedIncome = $data['totals']['expected'];
             if ($expectedIncome > 0 && $spentToDate > 0) {
                 $daysToExhaustIncome = intdiv($expectedIncome * $elapsedDays + $spentToDate - 1, $spentToDate);

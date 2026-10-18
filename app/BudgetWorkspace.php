@@ -11,6 +11,7 @@ use App\Models\BudgetRecurringCharge;
 use App\Models\Subscription;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class BudgetWorkspace
 {
@@ -77,36 +78,57 @@ class BudgetWorkspace
         return $changes;
     }
 
-    /** @return array{period: BudgetPeriod, budget: Budget, categories: Collection, incomes: Collection, transactions: Collection, commitments: Collection, recurringCharges: Collection, recurringExpenses: Collection, totals: array{expected: int, received: int, planned: int, spent: int, upcoming: int, unallocated: int, remaining: int, after_commitments: int}, categoryRows: Collection, groups: Collection, groupRows: Collection, analyticsRows: Collection, groupPercentageTotal: int, subscriptionChanges: list<string>, nextStart: string, nextEnd: string} */
+    /** @return array{period: BudgetPeriod, budget: Budget, categories: Collection, incomes: Collection, dailySpending: Collection, uncategorisedSpent: int, commitments: Collection, recurringCharges: Collection, recurringExpenses: Collection, totals: array{expected: int, received: int, planned: int, spent: int, upcoming: int, unallocated: int, remaining: int, after_commitments: int}, categoryRows: Collection, groups: Collection, groupRows: Collection, analyticsRows: Collection, groupPercentageTotal: int, subscriptionChanges: list<string>, nextStart: string, nextEnd: string} */
     public function data(BudgetPeriod $period): array
     {
         $changes = $this->sync($period);
         $categories = $period->categories()->orderBy('id')->get();
-        $transactions = $period->transactions()->orderByDesc('date')->orderByDesc('id')->get();
+        $transactionTotals = $period->transactions()
+            ->selectRaw('budget_category_id, SUM(amount_cents) as spent')
+            ->groupBy('budget_category_id')
+            ->get()
+            ->keyBy(fn (object $row): int|string => $row->budget_category_id ?? 'uncategorised');
+        $dailySpending = DB::table('budget_transactions')
+            ->where('budget_period_id', $period->id)
+            ->whereNull('deleted_at')
+            ->select('date')
+            ->selectRaw('SUM(amount_cents) as amount_cents')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->mapWithKeys(fn (object $row): array => [CarbonImmutable::parse($row->date)->toDateString() => (int) $row->amount_cents]);
+        $uncategorisedSpent = (int) ($transactionTotals->get('uncategorised')?->spent ?? 0);
         $incomes = $period->incomes()->get();
         $commitments = $period->commitments()->with('transaction')->whereDate('scheduled_date', '>=', $period->start_date->toDateString())->whereDate('scheduled_date', '<=', $period->end_date->toDateString())->get()
             ->filter(fn (BudgetCommitment $commitment): bool => $commitment->is_current || $commitment->transaction !== null)
             ->sortBy(fn (BudgetCommitment $commitment): string => $commitment->scheduled_date->toDateString())->values();
         $recurringCharges = $period->recurringCharges()->with('transaction')->whereDate('scheduled_date', '>=', $period->start_date->toDateString())->whereDate('scheduled_date', '<=', $period->end_date->toDateString())->get()->filter(fn (BudgetRecurringCharge $charge): bool => $charge->is_current || $charge->transaction !== null)->sortBy('scheduled_date')->values();
         $scheduledCents = $commitments->sum('amount_cents');
-        $categoryRows = $categories->map(function (BudgetCategory $category) use ($transactions, $commitments, $scheduledCents, $recurringCharges): array {
+        $unpaidCommitmentTotal = $commitments
+            ->filter(fn (BudgetCommitment $commitment): bool => $commitment->transaction === null && $commitment->is_current)
+            ->sum('amount_cents');
+        $unpaidRecurringByCategory = $recurringCharges
+            ->filter(fn (BudgetRecurringCharge $charge): bool => $charge->transaction === null && $charge->is_current)
+            ->groupBy('budget_category_id')
+            ->map(fn (Collection $charges): int => $charges->sum('amount_cents'));
+        $categoryRows = $categories->map(function (BudgetCategory $category) use ($transactionTotals, $unpaidCommitmentTotal, $scheduledCents, $unpaidRecurringByCategory): array {
             $planned = $category->allocated_cents ?? ($category->kind === 'subscriptions' ? $scheduledCents : 0);
-            $spent = $transactions->where('budget_category_id', $category->id)->sum('amount_cents');
-            $upcoming = $category->kind === 'subscriptions' ? $commitments->filter(fn (BudgetCommitment $charge): bool => $charge->transaction === null && $charge->is_current)->sum('amount_cents') : 0;
-
-            $upcoming += $recurringCharges->where('budget_category_id', $category->id)->filter(fn (BudgetRecurringCharge $charge): bool => $charge->is_current && $charge->transaction === null)->sum('amount_cents');
+            $spent = (int) ($transactionTotals->get($category->id)?->spent ?? 0);
+            $upcoming = $category->kind === 'subscriptions' ? (int) $unpaidCommitmentTotal : 0;
+            $upcoming += (int) $unpaidRecurringByCategory->get($category->id, 0);
 
             return ['category' => $category, 'planned' => $planned, 'spent' => $spent, 'upcoming' => $upcoming, 'remaining' => $planned - $spent, 'available' => $planned - $spent - $upcoming];
         });
         $expected = $incomes->sum('expected_cents');
         $received = $incomes->sum('received_cents');
         $planned = $categoryRows->sum('planned');
-        $spent = $transactions->sum('amount_cents');
+        $spent = (int) $transactionTotals->sum('spent');
         $upcoming = $commitments->filter(fn (BudgetCommitment $charge): bool => $charge->transaction === null && $charge->is_current)->sum('amount_cents');
         $upcoming += $recurringCharges->filter(fn (BudgetRecurringCharge $charge): bool => $charge->is_current && $charge->transaction === null)->sum('amount_cents');
         $groups = $period->groups()->orderBy('id')->get();
-        $groupRows = $groups->map(function (BudgetGroup $group) use ($categoryRows, $expected): array {
-            $rows = $categoryRows->filter(fn (array $row): bool => $row['category']->budget_group_id === $group->id);
+        $categoryRowsByGroup = $categoryRows->groupBy(fn (array $row): int => $row['category']->budget_group_id ?? 0);
+        $groupRows = $groups->map(function (BudgetGroup $group) use ($categoryRowsByGroup, $expected): array {
+            $rows = $categoryRowsByGroup->get($group->id, collect());
             $limit = $group->percentage_basis_points === null ? null : intdiv($expected * $group->percentage_basis_points + 5000, 10000);
             $spent = $rows->sum('spent');
             $upcoming = $rows->sum('upcoming');
@@ -115,9 +137,9 @@ class BudgetWorkspace
         });
         $analyticsRows = $groups->isEmpty()
             ? $categoryRows->map(fn (array $row): array => ['name' => $row['category']->name, 'planned' => $row['planned'], 'spent' => $row['spent'], 'limit' => $row['planned'], 'categories' => collect()])
-            : $groupRows->map(fn (array $row): array => ['name' => $row['group']->name, 'planned' => $row['planned'], 'spent' => $row['spent'], 'limit' => $row['limit'], 'categories' => $categoryRows->filter(fn (array $categoryRow): bool => $categoryRow['category']->budget_group_id === $row['group']->id)->values()]);
+            : $groupRows->map(fn (array $row): array => ['name' => $row['group']->name, 'planned' => $row['planned'], 'spent' => $row['spent'], 'limit' => $row['limit'], 'categories' => $categoryRowsByGroup->get($row['group']->id, collect())->values()]);
         if ($groups->isNotEmpty()) {
-            $ungrouped = $categoryRows->filter(fn (array $row): bool => $row['category']->budget_group_id === null)->values();
+            $ungrouped = $categoryRowsByGroup->get(0, collect())->values();
             if ($ungrouped->isNotEmpty()) {
                 $analyticsRows->push(['name' => 'Ungrouped', 'planned' => $ungrouped->sum('planned'), 'spent' => $ungrouped->sum('spent'), 'limit' => null, 'categories' => $ungrouped]);
             }
@@ -134,7 +156,7 @@ class BudgetWorkspace
             $nextEnd = $nextStart->addDays((int) $period->start_date->diffInDays($period->end_date));
         }
 
-        return ['period' => $period->fresh(), 'budget' => $period->budget, 'categories' => $categories, 'incomes' => $incomes, 'transactions' => $transactions, 'commitments' => $commitments, 'recurringCharges' => $recurringCharges, 'recurringExpenses' => $period->budget->recurringExpenses()->orderBy('name')->get(),
+        return ['period' => $period->fresh(), 'budget' => $period->budget, 'categories' => $categories, 'incomes' => $incomes, 'dailySpending' => $dailySpending, 'uncategorisedSpent' => $uncategorisedSpent, 'commitments' => $commitments, 'recurringCharges' => $recurringCharges, 'recurringExpenses' => $period->budget->recurringExpenses()->orderBy('name')->get(),
             'totals' => ['expected' => $expected, 'received' => $received, 'planned' => $planned, 'spent' => $spent, 'upcoming' => $upcoming, 'unallocated' => $expected - $planned, 'remaining' => $expected - $spent, 'after_commitments' => $expected - $spent - $upcoming],
             'groups' => $groups, 'groupRows' => $groupRows, 'analyticsRows' => $analyticsRows, 'groupPercentageTotal' => $groups->sum('percentage_basis_points'), 'categoryRows' => $categoryRows, 'subscriptionChanges' => $changes, 'nextStart' => $nextStart->toDateString(), 'nextEnd' => $nextEnd->toDateString()];
     }

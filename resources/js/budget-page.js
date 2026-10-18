@@ -70,10 +70,19 @@ export function budgetPage() {
         if (form) {
             form.querySelector('[data-form-errors]')?.remove();
         }
+        const requestUrl = new URL(url, location.href);
+        if (body) {
+            const currentQuery = new URL(location.href).searchParams;
+            for (const key of ['tab', 'expense_search', 'expense_category', 'expense_page']) {
+                if (currentQuery.has(key) && !requestUrl.searchParams.has(key)) {
+                    requestUrl.searchParams.set(key, currentQuery.get(key));
+                }
+            }
+        }
         if (body?.has('version')) {
             body.set('version', workspace.querySelector('[data-budget-version]')?.dataset.budgetVersion ?? body.get('version'));
         }
-        const response = await fetch(url, { method: body ? 'POST' : 'GET', body, headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+        const response = await fetch(requestUrl, { method: body ? 'POST' : 'GET', body, headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
         const result = await response.json();
         if (!response.ok) {
             const errors = result.errors ? Object.values(result.errors).flat().join(' ') : result.message;
@@ -152,21 +161,6 @@ export function budgetPage() {
         return form.reportValidity();
     }
 
-    function filterExpenses() {
-        const search = (page.querySelector('[data-budget-search]')?.value || '').toLocaleLowerCase();
-        const category = page.querySelector('[data-budget-filter]')?.value || '';
-        const rows = [...page.querySelectorAll('[data-budget-expense-row]')];
-        let matches = 0;
-        rows.forEach((row) => {
-            const match = row.textContent.toLocaleLowerCase().includes(search) && (!category || row.dataset.category === category);
-            row.hidden = !match;
-            if (match) {
-                matches++;
-            }
-        });
-        page.querySelector('[data-budget-no-results]')?.classList.toggle('hidden', matches > 0 || rows.length === 0);
-    }
-
     function undoDeletion() {
         if (!undoRecord) {
             return;
@@ -218,6 +212,12 @@ export function budgetPage() {
         },
 
         handleSubmit(event) {
+            const expenseFilters = event.target.closest('[data-budget-expense-filters]');
+            if (expenseFilters) {
+                event.preventDefault();
+                enqueue(`${expenseFilters.action}?${new URLSearchParams(new FormData(expenseFilters))}`, null);
+                return;
+            }
             const form = event.target.closest('[data-budget-action]');
             if (!form) {
                 return;
@@ -238,6 +238,13 @@ export function budgetPage() {
         },
 
         handleChange(event) {
+            const expenseFilters = event.target.closest('[data-budget-expense-filters]');
+            if (expenseFilters && event.target.matches('[name=expense_category]')) {
+                const parameters = new URLSearchParams(new FormData(expenseFilters));
+                parameters.delete('expense_page');
+                enqueue(`${expenseFilters.action}?${parameters}`, null);
+                return;
+            }
             if (event.target.closest('[data-budget-navigation]')) {
                 const form = event.target.closest('form');
                 enqueue(`${form.action}?${new URLSearchParams(new FormData(form))}`, null);
@@ -266,13 +273,9 @@ export function budgetPage() {
                     enqueue(form.action, new FormData(form), form, false);
                 }
             }
-            filterExpenses();
         },
 
         handleInput(event) {
-            if (event.target.matches('[data-budget-search]')) {
-                filterExpenses();
-            }
             if (event.target.closest('[data-budget-dates]') && ['start_date', 'end_date'].includes(event.target.name)) {
                 event.target.closest('form').elements.namedItem('preview_token').value = '';
             }

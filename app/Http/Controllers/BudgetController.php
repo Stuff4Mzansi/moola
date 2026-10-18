@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +43,13 @@ class BudgetController extends Controller
 
     public function index(Request $request): View|JsonResponse
     {
-        $request->validate(['period' => ['nullable', 'integer']]);
+        $request->validate([
+            'period' => ['nullable', 'integer'],
+            'tab' => ['nullable', 'string', 'in:overview,review,plan,expenses,subscriptions,recurring,notifications'],
+            'expense_search' => ['nullable', 'string', 'max:100'],
+            'expense_category' => ['nullable', 'integer'],
+            'expense_page' => ['nullable', 'integer', 'min:1'],
+        ]);
         $budgets = $this->accessibleBudgets($request->user());
         $visiblePeriods = $budgets->flatMap->periods->sortByDesc('start_date');
         $today = CarbonImmutable::today();
@@ -51,11 +58,14 @@ class BudgetController extends Controller
         $data = ['budgets' => $budgets, 'period' => null];
         if ($period !== null) {
             Gate::authorize('view', $period->budget);
+            $this->validateExpenseCategory($request, $period);
             $data = Cache::store('database')->lock('budget:'.$period->budget_id, 30)->block(5, fn (): array => DB::transaction(fn (): array => $this->viewData($request, BudgetPeriod::query()->findOrFail($period->id))));
         }
 
         if ($request->expectsJson()) {
-            return response()->json(['html' => view('budgets.workspace', $data)->render(), 'url' => route('budgets.index', $period === null ? [] : ['period' => $period->id]), 'message' => 'Budget refreshed.']);
+            $expensePage = $period === null ? null : $data['transactions']->currentPage();
+
+            return response()->json(['html' => view('budgets.workspace', $data)->render(), 'url' => $this->budgetIndexUrl($request, $period, $expensePage), 'message' => 'Budget refreshed.']);
         }
 
         return view('budgets.index', $data);
@@ -68,6 +78,11 @@ class BudgetController extends Controller
         app(BudgetNotifications::class)->evaluate($period, $data);
 
         return [...$data,
+            'transactions' => $this->expenseRows($request, $period),
+            'expenseCount' => $period->transactions()->count(),
+            'expenseSearch' => (string) $request->query('expense_search', ''),
+            'expenseCategory' => (string) $request->query('expense_category', ''),
+            'hasExpenseFilters' => $request->filled('expense_search') || $request->filled('expense_category'),
             'periodReview' => app(BudgetPeriodReview::class)->build($period, $data),
             'periodNudges' => $this->nudges->forPeriod($period, $data, $request->user()),
             'notificationTypes' => BudgetNotifications::TYPES,
@@ -82,6 +97,57 @@ class BudgetController extends Controller
         ];
     }
 
+    private function validateExpenseCategory(Request $request, BudgetPeriod $period): void
+    {
+        $categoryId = $request->query('expense_category');
+        if ($categoryId !== null && ! $period->categories()->whereKey($categoryId)->exists()) {
+            abort(404);
+        }
+    }
+
+    private function expenseRows(Request $request, BudgetPeriod $period): LengthAwarePaginator
+    {
+        $query = $period->transactions()->orderByDesc('date')->orderByDesc('id');
+        $search = trim((string) $request->query('expense_search', ''));
+        if ($search !== '') {
+            $query->where(function (Builder $query) use ($period, $search): void {
+                $query->where('description', 'like', '%'.$search.'%')
+                    ->orWhereIn('budget_category_id', $period->categories()->where('name', 'like', '%'.$search.'%')->select('id'));
+            });
+        }
+        if ($request->filled('expense_category')) {
+            $query->where('budget_category_id', $request->query('expense_category'));
+        }
+
+        $perPage = 50;
+        $total = (clone $query)->count();
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $page = min($request->integer('expense_page', 1), $lastPage);
+        $queryParameters = $request->query();
+        $queryParameters['tab'] = 'expenses';
+
+        return new LengthAwarePaginator($query->forPage($page, $perPage)->get(), $total, $perPage, $page, [
+            'path' => route('budgets.index'),
+            'query' => $queryParameters,
+            'pageName' => 'expense_page',
+        ]);
+    }
+
+    private function budgetIndexUrl(Request $request, ?BudgetPeriod $period, ?int $expensePage = null): string
+    {
+        $query = $period === null ? [] : ['period' => $period->id];
+        foreach (['tab', 'expense_search', 'expense_category'] as $key) {
+            if ($request->filled($key)) {
+                $query[$key] = $request->query($key);
+            }
+        }
+        if ($expensePage !== null && $expensePage > 1) {
+            $query['expense_page'] = $expensePage;
+        }
+
+        return route('budgets.index', $query);
+    }
+
     public function updateNudge(Request $request, BudgetPeriod $period, string $nudge, string $action): RedirectResponse
     {
         Gate::authorize('view', $period->budget);
@@ -94,10 +160,12 @@ class BudgetController extends Controller
     private function response(Request $request, BudgetPeriod $period, string $message = 'Saved.', ?int $undoId = null): JsonResponse|RedirectResponse
     {
         if ($request->expectsJson()) {
-            return response()->json(['html' => view('budgets.workspace', $this->viewData($request, BudgetPeriod::query()->findOrFail($period->id)))->render(), 'message' => $message, 'undo_id' => $undoId, 'url' => route('budgets.index', ['period' => $period->id])]);
+            $data = $this->viewData($request, BudgetPeriod::query()->findOrFail($period->id));
+
+            return response()->json(['html' => view('budgets.workspace', $data)->render(), 'message' => $message, 'undo_id' => $undoId, 'url' => $this->budgetIndexUrl($request, $period, $data['transactions']->currentPage())]);
         }
 
-        return redirect()->route('budgets.index', ['period' => $period->id])->with('status', $message)->with('undo_id', $undoId);
+        return redirect()->to($this->budgetIndexUrl($request, $period))->with('status', $message)->with('undo_id', $undoId);
     }
 
     public function store(BudgetActionRequest $request): JsonResponse|RedirectResponse

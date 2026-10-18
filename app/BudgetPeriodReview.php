@@ -6,7 +6,6 @@ use App\Models\BudgetCommitment;
 use App\Models\BudgetIncome;
 use App\Models\BudgetPeriod;
 use App\Models\BudgetRecurringCharge;
-use App\Models\BudgetTransaction;
 use Carbon\CarbonImmutable;
 
 class BudgetPeriodReview
@@ -18,7 +17,6 @@ class BudgetPeriodReview
     public function build(BudgetPeriod $period, array $workspace): array
     {
         $today = CarbonImmutable::today();
-        $transactionsByDate = $workspace['transactions']->groupBy(fn (BudgetTransaction $transaction): string => $transaction->date->toDateString());
         $dailySpending = [];
         $cumulativeSpending = 0;
         $plannedReachedDate = null;
@@ -26,7 +24,7 @@ class BudgetPeriodReview
         $date = $period->start_date;
         while ($date->lte($period->end_date)) {
             $dateString = $date->toDateString();
-            $dailyAmount = (int) $transactionsByDate->get($dateString, collect())->sum('amount_cents');
+            $dailyAmount = (int) $workspace['dailySpending']->get($dateString, 0);
             $cumulativeSpending += $dailyAmount;
             $dailySpending[] = ['date' => $dateString, 'amount' => $dailyAmount, 'cumulative' => $cumulativeSpending];
 
@@ -41,9 +39,7 @@ class BudgetPeriodReview
         $spendingCategories = $workspace['categoryRows']
             ->filter(fn (array $row): bool => $row['spent'] > 0)
             ->map(fn (array $row): array => ['name' => $row['category']->name, 'amount' => $row['spent']]);
-        $uncategorised = $workspace['transactions']
-            ->whereNull('budget_category_id')
-            ->sum('amount_cents');
+        $uncategorised = $workspace['uncategorisedSpent'];
         if ($uncategorised > 0) {
             $spendingCategories->push(['name' => 'Uncategorised', 'amount' => $uncategorised]);
         }

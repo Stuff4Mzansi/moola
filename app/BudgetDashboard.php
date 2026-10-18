@@ -7,7 +7,6 @@ use App\Models\BudgetCommitment;
 use App\Models\BudgetIncome;
 use App\Models\BudgetPeriod;
 use App\Models\BudgetRecurringCharge;
-use App\Models\BudgetTransaction;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -114,7 +113,6 @@ class BudgetDashboard
         }
         $risk = $totals['after_commitments'] < 0 || $overLimits->isNotEmpty() ? 2 : ($totals['unallocated'] < 0 || $overdue->isNotEmpty() || $totals['expected'] === 0 ? 1 : 0);
         $highlightRows = $rows->sortByDesc(fn (array $row): int => $row['spent'] + $row['upcoming'])->take(3)->values();
-        $transactionByDate = $data['transactions']->groupBy(fn (BudgetTransaction $transaction): string => $transaction->date->toDateString());
         $daysInPeriod = (int) $data['period']->start_date->diffInDays($data['period']->end_date) + 1;
         $today = CarbonImmutable::today();
         $dailyPace = [];
@@ -122,14 +120,14 @@ class BudgetDashboard
         for ($date = $data['period']->start_date, $dayIndex = 0; $date->lte($data['period']->end_date); $date = $date->addDay(), $dayIndex++) {
             $isThroughToday = $date->lte($today);
             if ($isThroughToday) {
-                $cumulativeSpent += (int) $transactionByDate->get($date->toDateString(), collect())->sum('amount_cents');
+                $cumulativeSpent += (int) $data['dailySpending']->get($date->toDateString(), 0);
             }
             $paceElapsedDays = min($dayIndex + 1, $daysInPeriod);
             $dailyPace[] = ['date' => $date->toDateString(), 'spent' => $isThroughToday ? $cumulativeSpent : null, 'planned' => (int) round($totals['planned'] * $paceElapsedDays / $daysInPeriod)];
         }
         $spendingMix = $data['categoryRows']->filter(fn (array $row): bool => $row['spent'] > 0)
             ->map(fn (array $row): array => ['name' => $row['category']->name, 'amount' => $row['spent']])->values();
-        $uncategorised = $data['transactions']->whereNull('budget_category_id')->sum('amount_cents');
+        $uncategorised = $data['uncategorisedSpent'];
         if ($uncategorised > 0) {
             $spendingMix->push(['name' => 'Uncategorised', 'amount' => $uncategorised]);
         }
