@@ -67,12 +67,11 @@ test('dashboard chart data includes current spending pace and uncategorised spen
         ->and($card['spendingMix'])->toContain(['name' => 'Uncategorised', 'amount' => 5000]);
 
     $budgetOverview = $this->get(route('budgets.index', ['period' => $this->period->id, 'tab' => 'overview']))->assertOk()
-        ->assertSee('Spending mix')
-        ->assertSee('data-budget-spending-mix', false)
-        ->assertSee('Uncategorised')
-        ->assertSee('data-mix-data', false);
-    expect($budgetOverview->getContent())->toContain('"name":"Home","amount":20000')
-        ->toContain('"name":"Uncategorised","amount":5000');
+        ->assertDontSee('Spending mix')
+        ->assertDontSee('data-budget-spending-mix', false)
+        ->assertDontSee('data-mix-data', false);
+    expect($budgetOverview->getContent())->not->toContain('"name":"Home","spent":20000,"planned":60000')
+        ->not->toContain('"name":"Uncategorised","spent":5000,"planned":0');
 });
 
 test('next seven days includes both schedule types at the boundary and excludes recorded payments', function () {

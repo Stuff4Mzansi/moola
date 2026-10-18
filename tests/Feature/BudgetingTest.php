@@ -299,7 +299,7 @@ test('expenses outside the period and categories from another period cannot be u
 });
 
 test('budget opens on a read-only analytics overview with setup in separate tabs', function () {
-    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('Spending over time')->assertSee('Spending mix')->assertDontSee('Spending by category')->assertSee('At a glance');
+    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('Spending over time')->assertDontSee('Spending mix')->assertDontSee('Spending and plan by category')->assertDontSee('Spending by category')->assertSee('At a glance');
     $document = new DOMDocument;
     @$document->loadHTML($response->getContent());
     $xpath = new DOMXPath($document);
@@ -310,6 +310,7 @@ test('budget opens on a read-only analytics overview with setup in separate tabs
         expect($xpath->query('//*[@data-budget-panel="'.$tab.'"]')->item(0)->hasAttribute('hidden'))->toBeTrue();
     }
     expect($xpath->query('//*[@data-budget-panel="plan"]//form[@data-budget-autosave]')->length)->toBeGreaterThan(0);
+    expect($xpath->query('//*[@data-budget-spending-mix]')->length)->toBe(0);
 });
 
 test('analytics compares recorded spending against category limits and flags overspending', function () {

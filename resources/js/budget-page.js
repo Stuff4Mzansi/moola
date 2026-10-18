@@ -382,3 +382,13 @@ export function budgetPage() {
         },
     };
 }
+
+export function groupBalanceRows() {
+    return {
+        expanded: false,
+
+        toggle() {
+            this.expanded = !this.expanded;
+        },
+    };
+}

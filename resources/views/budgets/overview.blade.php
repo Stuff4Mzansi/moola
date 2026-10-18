@@ -76,7 +76,6 @@
             $trendDescription = 'Recorded spending totals '.$money($totals['spent']).' against a planned limit of '.$money($totals['planned']).' and income received of '.$money($totals['received']).'. A smooth curve connects cumulative recorded totals on expense dates. '.($totals['planned'] > 0 ? 'The budget pace line shows planned spending distributed evenly from the start to the end of the period. ' : '').'The green dashed line shows total income recorded as received for this period.';
             $receivedFundingGap = max(0, $totals['planned'] - $totals['received']);
         @endphp
-            @include('budgets.spending-mix')
             <div class="grid min-w-0 gap-4 lg:grid-cols-3">
             <section class="min-w-0 rounded-sm border border-base-300 bg-base-100 p-5 lg:col-span-2" aria-labelledby="budget-trend-title">
                 <div class="flex flex-wrap items-start justify-between gap-3">

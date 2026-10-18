@@ -34,7 +34,12 @@ function groupPayload(BudgetPeriod $period, array $data): array
 
 test('new budgets have no groups and users can opt into a 50 30 20 plan', function () {
     expect($this->period->groups()->count())->toBe(0);
-    $this->get(route('budgets.index'))->assertOk()->assertSee('No groups yet.');
+    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('No groups yet.')->assertSee('Your category balance');
+    $document = new DOMDocument;
+    @$document->loadHTML($response->getContent());
+    $xpath = new DOMXPath($document);
+    expect($xpath->query('//*[@data-category-balance-table]//tr[@data-category-balance-row]')->length)->toBe($this->period->categories()->count())
+        ->and($xpath->query('//*[@data-category-balance-table]//tbody/tr/th//*[local-name()="svg"]')->length)->toBe(0);
     foreach (['Needs' => '50', 'Wants' => '30', 'Savings' => '20'] as $name => $percentage) {
         $this->postJson(groupAction($this->period, 'group-save'), groupPayload($this->period, compact('name', 'percentage')))->assertOk();
     }
@@ -44,14 +49,27 @@ test('new budgets have no groups and users can opt into a 50 30 20 plan', functi
     $this->get(route('budgets.index'))->assertSee('Your group balance');
 });
 
-test('group balances use compact rows within a bounded scroll region for any group count', function (int $count) {
+test('category balances show spending and planned amounts when no groups exist', function () {
+    $food = $this->period->categories()->where('name', 'Food')->sole();
+    $food->update(['allocated_cents' => 10000]);
+    BudgetTransaction::factory()->create(['budget_period_id' => $this->period->id, 'budget_category_id' => $food->id, 'amount_cents' => 2000, 'date' => '2026-10-03']);
+
+    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('Your category balance')->assertSee('Food')->assertSee('R 20.00')->assertSee('R 100.00');
+    $document = new DOMDocument;
+    @$document->loadHTML($response->getContent());
+    $xpath = new DOMXPath($document);
+    expect($xpath->query('//*[@data-category-balance-table]//tr[@data-category-balance-row]')->length)->toBe($this->period->categories()->count())
+        ->and($xpath->query('//*[@data-category-balance-table]//tr[@data-category-balance-row][th[contains(., "Food")]]')->length)->toBe(1);
+});
+
+test('group balances grow to fit rows for any group count', function (int $count) {
     BudgetGroup::factory()->count($count)->create(['budget_period_id' => $this->period->id, 'percentage_basis_points' => null]);
-    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('max-h-64 overflow-auto', false);
+    $response = $this->get(route('budgets.index'))->assertOk()->assertSee('overflow-x-auto overscroll-x-contain', false)->assertDontSee('max-h-64 overflow-auto', false);
     $document = new DOMDocument;
     @$document->loadHTML($response->getContent());
     $xpath = new DOMXPath($document);
     expect($xpath->query('//*[@data-group-balance-table]//tr[@data-group-balance-row]')->length)->toBe($count)
-        ->and($xpath->query('//*[@data-group-balance-table]//thead[contains(@class,"sticky")]')->length)->toBe(1);
+        ->and($xpath->query('//*[@data-group-balance-table]//thead[contains(@class,"sticky")]')->length)->toBe(0);
 })->with([1, 4, 12]);
 
 test('group percentage limits validate exact decimals total coverage and unique names', function () {
@@ -158,6 +176,16 @@ test('overview omits the group spending chart while retaining group totals', fun
     $xpath = new DOMXPath($document);
     expect($xpath->query('//*[@aria-labelledby="budget-comparison-title"]')->length)->toBe(0);
     expect($xpath->query('//*[@data-budget-live="group-analytics"]//*[@data-group-balance-row]')->length)->toBe(3);
+    expect($xpath->query('//*[@data-budget-live="group-analytics"]//button[@aria-controls and @aria-expanded="false"]')->length)->toBe(3)
+        ->and($xpath->query('//*[@data-budget-live="group-analytics"]//table[@id="budget-group-categories-'.$needs->id.'"]//thead/tr/th')->length)->toBe(5)
+        ->and($xpath->query('//*[@data-budget-live="group-analytics"]//table[@id="budget-group-categories-'.$needs->id.'"]//tbody/tr')->length)->toBe(2)
+        ->and($xpath->query('//*[@data-group-balance-main]/colgroup/col')->length)->toBe(5)
+        ->and($xpath->query('//*[@data-budget-live="group-analytics"]//table[@id="budget-group-categories-'.$needs->id.'"]/colgroup/col')->length)->toBe(5)
+        ->and($xpath->query('//*[@data-budget-live="group-analytics"]//p[contains(., "Category breakdown")]')->length)->toBe(0);
+    expect($xpath->query('//*[@data-budget-live="group-analytics"]//table[@id="budget-group-categories-'.$needs->id.'"]//tbody/tr[1][contains(@class, "odd:bg-base-200/40")]')->length)->toBe(1)
+        ->and($xpath->query('//*[@data-budget-live="group-analytics"]//table[@id="budget-group-categories-'.$needs->id.'"]//tbody/tr[1]/th[contains(@class, "pl-5")]')->length)->toBe(1)
+        ->and($xpath->query('//*[@data-budget-live="group-analytics"]//table[@id="budget-group-categories-'.$needs->id.'"]/tbody/tr/th//*[local-name()="svg"]')->length)->toBe(0);
+    $response->assertSee('R 100.00')->assertSee('R 200.00')->assertSee('Remaining R 100.00');
 });
 
 test('grouped overview warnings use group percentage limits instead of category allocations', function () {
@@ -178,6 +206,6 @@ test('analytics switches back to category rows after the last group is removed',
     $response = $this->get(route('budgets.index'))->assertOk()->assertSee('Your group balance')->assertDontSee('Spending by group');
     expect($response->viewData('analyticsRows')->pluck('name')->all())->toBe(['Needs']);
     $response = $this->postJson(groupAction($this->period, 'group-remove'), groupPayload($this->period, ['id' => $group->id]))->assertOk();
-    expect($response->json('html'))->not->toContain('Spending by group')->not->toContain('Your group balance');
-    $this->get(route('budgets.index'))->assertOk()->assertViewHas('analyticsRows', fn (Collection $rows): bool => $rows->count() === 7);
+    expect($response->json('html'))->not->toContain('Spending by group')->not->toContain('Your group balance')->toContain('Your category balance');
+    $this->get(route('budgets.index'))->assertOk()->assertSee('Your category balance')->assertViewHas('analyticsRows', fn (Collection $rows): bool => $rows->count() === 7);
 });

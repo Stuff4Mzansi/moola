@@ -1,26 +1,88 @@
 <section data-budget-live="group-analytics" class="space-y-3">
     @if($groups->isNotEmpty())
-    <div class="flex flex-wrap items-start justify-between gap-2"><div><h3 class="flex items-center gap-1.5 text-sm font-semibold"><x-lucide-layers class="size-3.5 text-primary" aria-hidden="true" />Your group balance</h3><p class="mt-0.5 text-[11px] opacity-60">Percentage limits follow expected income. Group totals include all assigned categories.</p></div><button class="btn btn-ghost btn-xs" type="button" data-budget-go="plan">Manage groups <x-lucide-arrow-up-right class="size-3" aria-hidden="true" /></button></div>
+    @php
+        $categoriesByGroup = $categoryRows->groupBy(fn (array $row): int => $row['category']->budget_group_id ?? 0);
+    @endphp
+    <div class="flex flex-wrap items-start justify-between gap-2"><div><h3 class="flex items-center gap-1.5 text-sm font-semibold"><x-lucide-layers class="size-3.5 text-primary" aria-hidden="true" />Your group balance</h3><p class="mt-0.5 text-[11px] opacity-60">Percentage limits follow expected income. Expand a group to compare category spending with its plan.</p></div><button class="btn btn-ghost btn-xs" type="button" data-budget-go="plan">Manage groups <x-lucide-arrow-up-right class="size-3" aria-hidden="true" /></button></div>
     <div class="overflow-hidden rounded-sm border border-base-300 bg-base-100">
-        <div class="max-h-64 overflow-auto overscroll-contain focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary" tabindex="0" role="region" aria-label="Group balances; scroll to view all groups and columns" data-group-balance-table>
-            <table class="table table-xs w-full min-w-[720px]">
+        <div class="overflow-x-auto overscroll-x-contain focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary" tabindex="0" role="region" aria-label="Group balances; scroll horizontally to view all columns" data-group-balance-table>
+            <table class="table table-xs w-full min-w-[720px] table-fixed" data-group-balance-main>
                 <caption class="sr-only">Spending, plans, and unpaid scheduled expenses for each budget group</caption>
-                <thead class="sticky top-0 z-10 bg-base-200 text-[10px]"><tr><th scope="col">Group</th><th scope="col">Spent / group limit</th><th scope="col">Planned</th><th scope="col">Remaining limit</th><th scope="col">Scheduled (unpaid)</th></tr></thead>
-                <tbody>
-                    @foreach($groupRows as $groupRow)
+                <colgroup><col style="width: 20%"><col style="width: 28%"><col style="width: 16%"><col style="width: 18%"><col style="width: 18%"></colgroup>
+                <thead class="bg-base-200 text-[10px]"><tr><th scope="col">Group</th><th scope="col">Spent / group limit</th><th scope="col">Planned</th><th scope="col">Remaining limit</th><th scope="col">Scheduled (unpaid)</th></tr></thead>
+                @foreach($groupRows as $groupRow)
+                        @php
+                            $groupCategories = $categoriesByGroup->get($groupRow['group']->id, collect());
+                            $categoryListId = 'budget-group-categories-'.$groupRow['group']->id;
+                        @endphp
+                        <tbody x-data="groupBalanceRows">
                         <tr class="hover:bg-base-200/40" data-group-balance-row>
-                            <th scope="row" class="w-1/5 align-middle font-normal"><p class="max-w-48 whitespace-normal break-words text-xs font-semibold">{{ $groupRow['group']->name }}</p><div class="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]"><span class="opacity-50">{{ $groupRow['category_count'] }} {{ $groupRow['category_count'] === 1 ? 'category' : 'categories' }}</span><span class="badge badge-ghost badge-xs font-medium">{{ $groupRow['group']->percentage_basis_points === null ? 'No limit' : rtrim(rtrim($amount($groupRow['group']->percentage_basis_points), '0'), '.').'%' }}</span></div></th>
+                            <th scope="row" class="w-1/5 align-middle font-normal"><button type="button" class="flex min-h-10 w-full items-center justify-between gap-2 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-primary" x-on:click="toggle" x-bind:aria-expanded="expanded" aria-expanded="false" aria-controls="{{ $categoryListId }}"><span class="min-w-0"><span class="block max-w-48 whitespace-normal break-words text-xs font-semibold">{{ $groupRow['group']->name }}</span><span class="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]"><span class="opacity-50">{{ $groupRow['category_count'] }} {{ $groupRow['category_count'] === 1 ? 'category' : 'categories' }}</span><span class="badge badge-ghost badge-xs font-medium">{{ $groupRow['group']->percentage_basis_points === null ? 'No limit' : rtrim(rtrim($amount($groupRow['group']->percentage_basis_points), '0'), '.').'%' }}</span></span></span><x-lucide-chevron-down class="size-3.5 shrink-0 transition-transform" x-bind:class="{ 'rotate-180': expanded }" aria-hidden="true" /></button></th>
                             <td class="min-w-44 py-2.5 align-middle"><p @class(['whitespace-nowrap text-xs font-semibold tabular-nums', 'text-error' => $groupRow['remaining'] !== null && $groupRow['remaining'] < 0, 'text-orange-600' => $groupRow['remaining'] === null || $groupRow['remaining'] >= 0])>{{ $money($groupRow['spent']) }}@if($groupRow['limit'] !== null)<span class="text-[10px] font-normal text-base-content/55"> / {{ $money($groupRow['limit']) }}</span>@endif</p>@if($groupRow['limit'] !== null)<progress @class(['progress mt-1.5 block h-1 w-full', 'progress-error' => $groupRow['remaining'] < 0, 'text-orange-600' => $groupRow['remaining'] >= 0]) max="{{ max(1, $groupRow['limit']) }}" value="{{ min($groupRow['spent'], max(1, $groupRow['limit'])) }}" aria-label="{{ $groupRow['group']->name }} spending against group limit" aria-valuetext="{{ $money($groupRow['spent']) }} spent of {{ $money($groupRow['limit']) }}"></progress>@endif</td>
                             <td class="align-middle"><p class="whitespace-nowrap text-[11px] tabular-nums">{{ $money($groupRow['planned']) }}</p>@if($groupRow['limit'] !== null && $groupRow['planned'] > $groupRow['limit'])<span class="mt-1 inline-flex items-center gap-1 text-[10px] text-error" title="Planned categories exceed the group limit."><x-lucide-triangle-alert class="size-3 shrink-0" aria-hidden="true" />Plan above limit</span>@endif</td>
                             <td class="align-middle">@if($groupRow['remaining'] !== null)<p @class(['whitespace-nowrap text-[11px] tabular-nums', 'font-semibold text-error' => $groupRow['remaining'] < 0, 'opacity-65' => $groupRow['remaining'] >= 0])>{{ $groupRow['remaining'] < 0 ? 'Over limit by ' : 'Remaining ' }}{{ $money(abs($groupRow['remaining'])) }}</p>@else<span class="text-[11px] opacity-50">No limit</span>@endif</td>
                             <td class="align-middle"><p class="whitespace-nowrap text-[11px] tabular-nums opacity-65"><span class="sr-only">Unpaid scheduled expenses: </span>{{ $money($groupRow['upcoming']) }}</p>@if($groupRow['upcoming'] > 0 && $groupRow['available'] !== null)<p @class(['mt-1 whitespace-nowrap text-[10px] tabular-nums', 'font-medium text-error' => $groupRow['available'] < 0, 'opacity-60' => $groupRow['available'] >= 0])>After these: {{ $money($groupRow['available']) }}</p>@endif</td>
                         </tr>
-                    @endforeach
+                        <tr x-bind:hidden="!expanded" hidden>
+                            <td colspan="5" class="border-y border-base-300 bg-base-200/50 p-0">
+                                @if($groupCategories->isEmpty())
+                                    <p id="{{ $categoryListId }}" class="text-[11px] opacity-60">No categories in this group yet.</p>
+                                @else
+                                <div class="overflow-hidden border-y border-base-300 bg-base-200/30 shadow-sm">
+                                <table id="{{ $categoryListId }}" class="table table-xs w-full min-w-[720px] table-fixed">
+                                    <caption class="sr-only">Spending, plans, and unpaid scheduled expenses for categories in {{ $groupRow['group']->name }}</caption>
+                                    <colgroup><col style="width: 20%"><col style="width: 28%"><col style="width: 16%"><col style="width: 18%"><col style="width: 18%"></colgroup>
+                                    <thead class="bg-base-300/40 text-[10px]"><tr><th scope="col">Category</th><th scope="col">Spent / category plan</th><th scope="col">Planned</th><th scope="col">Remaining plan</th><th scope="col">Scheduled (unpaid)</th></tr></thead>
+                                    <tbody>
+                                    @foreach($groupCategories as $categoryRow)
+                                        @php
+                                            $categoryRemaining = $categoryRow['remaining'];
+                                        @endphp
+                                        <tr class="border-base-300/60 odd:bg-base-200/40 even:bg-base-300/20 hover:bg-primary/10">
+                                            <th scope="row" class="w-1/5 align-middle font-normal pl-5"><p class="max-w-48 whitespace-normal break-words text-xs font-semibold">{{ $categoryRow['category']->name }}</p></th>
+                                            <td class="min-w-44 py-2.5 align-middle"><p @class(['whitespace-nowrap text-xs font-semibold tabular-nums', 'text-error' => $categoryRemaining < 0, 'text-orange-600' => $categoryRemaining >= 0])>{{ $money($categoryRow['spent']) }}<span class="text-[10px] font-normal text-base-content/55"> / {{ $money($categoryRow['planned']) }}</span></p><progress @class(['progress mt-1.5 block h-1 w-full', 'progress-error' => $categoryRemaining < 0, 'text-orange-600' => $categoryRemaining >= 0]) max="{{ max(1, $categoryRow['planned']) }}" value="{{ min($categoryRow['spent'], max(1, $categoryRow['planned'])) }}" aria-label="{{ $categoryRow['category']->name }} spending against category plan" aria-valuetext="{{ $money($categoryRow['spent']) }} spent of {{ $money($categoryRow['planned']) }} planned"></progress></td>
+                                            <td class="align-middle"><p class="whitespace-nowrap text-[11px] tabular-nums">{{ $money($categoryRow['planned']) }}</p></td>
+                                            <td class="align-middle"><p @class(['whitespace-nowrap text-[11px] tabular-nums', 'font-semibold text-error' => $categoryRemaining < 0, 'opacity-65' => $categoryRemaining >= 0])>{{ $categoryRemaining < 0 ? 'Over plan by ' : 'Remaining ' }}{{ $money(abs($categoryRemaining)) }}</p></td>
+                                            <td class="align-middle"><p class="whitespace-nowrap text-[11px] tabular-nums opacity-65"><span class="sr-only">Unpaid scheduled expenses: </span>{{ $money($categoryRow['upcoming']) }}</p>@if($categoryRow['upcoming'] > 0)<p @class(['mt-1 whitespace-nowrap text-[10px] tabular-nums', 'font-medium text-error' => $categoryRow['available'] < 0, 'opacity-60' => $categoryRow['available'] >= 0])>After these: {{ $money($categoryRow['available']) }}</p>@endif</td>
+                                        </tr>
+                                    @endforeach
+                                    </tbody>
+                                </table>
+                                </div>
+                                @endif
+                            </td>
+                        </tr>
+                        </tbody>
+                @endforeach
+            </table>
+        </div>
+        @if($groupRows->count() > 4)<p class="border-t border-base-300 bg-base-200/40 px-3 py-1.5 text-[10px] opacity-60">{{ $groupRows->count() }} groups &middot; Expand any group to review its categories.</p>@endif
+    </div>
+    <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-sm bg-base-200/50 px-3 py-2 text-[11px]"><p class="flex items-center gap-1.5 opacity-65"><x-lucide-folder-open class="size-3 shrink-0" aria-hidden="true" /><span>Ungrouped categories: {{ $money($categoryRows->filter(fn (array $row): bool => $row['category']->budget_group_id === null)->sum('spent')) }} spent.</span></p>@if($totals['expected'] === 0)<p class="opacity-60">Add expected income to give percentage limits a monetary value.</p>@endif</div>
+    @elseif($categoryRows->isNotEmpty())
+    <div class="flex flex-wrap items-start justify-between gap-2"><div><h3 class="text-sm font-semibold">Your category balance</h3><p class="mt-0.5 text-[11px] opacity-60">Compare spending with the plan for each category.</p></div><button class="btn btn-ghost btn-xs" type="button" data-budget-go="plan">Manage groups <x-lucide-arrow-up-right class="size-3" aria-hidden="true" /></button></div>
+    <div class="overflow-hidden rounded-sm border border-base-300 bg-base-100">
+        <div class="overflow-x-auto overscroll-x-contain focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary" tabindex="0" role="region" aria-label="Category balances; scroll horizontally to view all columns" data-category-balance-table>
+            <table class="table table-xs w-full min-w-[720px] table-fixed">
+                <caption class="sr-only">Spending, plans, and unpaid scheduled expenses for each budget category</caption>
+                <colgroup><col style="width: 20%"><col style="width: 28%"><col style="width: 16%"><col style="width: 18%"><col style="width: 18%"></colgroup>
+                <thead class="bg-base-200 text-[10px]"><tr><th scope="col">Category</th><th scope="col">Spent / category plan</th><th scope="col">Planned</th><th scope="col">Remaining plan</th><th scope="col">Scheduled (unpaid)</th></tr></thead>
+                <tbody>
+                @foreach($categoryRows as $categoryRow)
+                    @php
+                        $categoryRemaining = $categoryRow['remaining'];
+                    @endphp
+                    <tr class="border-base-300/60 odd:bg-base-200/40 even:bg-base-300/20 hover:bg-primary/10" data-category-balance-row>
+                        <th scope="row" class="w-1/5 align-middle font-normal"><p class="max-w-48 whitespace-normal break-words text-xs font-semibold">{{ $categoryRow['category']->name }}</p></th>
+                        <td class="min-w-44 py-2.5 align-middle"><p @class(['whitespace-nowrap text-xs font-semibold tabular-nums', 'text-error' => $categoryRemaining < 0, 'text-orange-600' => $categoryRemaining >= 0])>{{ $money($categoryRow['spent']) }}<span class="text-[10px] font-normal text-base-content/55"> / {{ $money($categoryRow['planned']) }}</span></p><progress @class(['progress mt-1.5 block h-1 w-full', 'progress-error' => $categoryRemaining < 0, 'text-orange-600' => $categoryRemaining >= 0]) max="{{ max(1, $categoryRow['planned']) }}" value="{{ min($categoryRow['spent'], max(1, $categoryRow['planned'])) }}" aria-label="{{ $categoryRow['category']->name }} spending against category plan" aria-valuetext="{{ $money($categoryRow['spent']) }} spent of {{ $money($categoryRow['planned']) }} planned"></progress></td>
+                        <td class="align-middle"><p class="whitespace-nowrap text-[11px] tabular-nums">{{ $money($categoryRow['planned']) }}</p></td>
+                        <td class="align-middle"><p @class(['whitespace-nowrap text-[11px] tabular-nums', 'font-semibold text-error' => $categoryRemaining < 0, 'opacity-65' => $categoryRemaining >= 0])>{{ $categoryRemaining < 0 ? 'Over plan by ' : 'Remaining ' }}{{ $money(abs($categoryRemaining)) }}</p></td>
+                        <td class="align-middle"><p class="whitespace-nowrap text-[11px] tabular-nums opacity-65"><span class="sr-only">Unpaid scheduled expenses: </span>{{ $money($categoryRow['upcoming']) }}</p>@if($categoryRow['upcoming'] > 0)<p @class(['mt-1 whitespace-nowrap text-[10px] tabular-nums', 'font-medium text-error' => $categoryRow['available'] < 0, 'opacity-60' => $categoryRow['available'] >= 0])>After these: {{ $money($categoryRow['available']) }}</p>@endif</td>
+                    </tr>
+                @endforeach
                 </tbody>
             </table>
         </div>
-        @if($groupRows->count() > 4)<p class="border-t border-base-300 bg-base-200/40 px-3 py-1.5 text-[10px] opacity-60">{{ $groupRows->count() }} groups &middot; Scroll inside the table to review more.</p>@endif
     </div>
-    <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-sm bg-base-200/50 px-3 py-2 text-[11px]"><p class="flex items-center gap-1.5 opacity-65"><x-lucide-folder-open class="size-3 shrink-0" aria-hidden="true" /><span>Ungrouped categories: {{ $money($categoryRows->filter(fn (array $row): bool => $row['category']->budget_group_id === null)->sum('spent')) }} spent.</span></p>@if($totals['expected'] === 0)<p class="opacity-60">Add expected income to give percentage limits a monetary value.</p>@endif</div>
     @endif
 </section>

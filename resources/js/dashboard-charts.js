@@ -1,5 +1,3 @@
-const chartColours = ['#6366f1', '#14b8a6', '#f59e0b', '#ec4899', '#0ea5e9', '#8b5cf6', '#84cc16', '#f97316'];
-
 export function dashboardPaceGeometry(points, planned, received, viewportWidth = 680) {
     const width = Math.max(320, viewportWidth);
     const left = 32, right = width, top = 16, bottom = 132;
@@ -7,17 +5,6 @@ export function dashboardPaceGeometry(points, planned, received, viewportWidth =
     const x = (index) => left + (index / Math.max(1, points.length - 1)) * (right - left);
     const y = (amount) => bottom - amount / maximum * (bottom - top);
     return { width, left, right, top, bottom, maximum, x, y };
-}
-
-export function categoryMixSegments(categories) {
-    const total = categories.reduce((sum, category) => sum + category.amount, 0);
-    let offset = 0;
-    return { total, segments: categories.map((category, index) => {
-        const share = total ? category.amount / total * 100 : 0;
-        const segment = { ...category, share, offset, colour: chartColours[index % chartColours.length] };
-        offset += share;
-        return segment;
-    }) };
 }
 
 function svgElement(name, attributes = {}, content = null) {
@@ -78,46 +65,6 @@ function renderPace(section, budgets) {
     link.textContent = `Review ${budget.name}`;
 }
 
-function renderMix(section, budgets) {
-    const budget = budgets[0];
-    const host = section.querySelector('[data-mix-chart]');
-    const legend = section.querySelector('[data-mix-legend]');
-    const empty = section.querySelector('[data-mix-empty]');
-    const { total, segments } = categoryMixSegments(budget.categories);
-    const svg = svgElement('svg', { viewBox: '0 0 120 120', class: 'h-full w-full', role: 'img', 'aria-labelledby': 'budget-spending-mix-title budget-spending-mix-description' });
-    svg.append(svgElement('title', { id: 'budget-spending-mix-description' }, `${budget.name}: spending by category from ${shortDate(budget.start)} to ${shortDate(budget.end)}.`));
-    svg.append(svgElement('circle', { cx: 60, cy: 60, r: 43, fill: 'none', class: 'stroke-base-300', 'stroke-width': 14 }));
-    segments.forEach((segment) => {
-        if (segment.share <= 0) return;
-        svg.append(svgElement('circle', { cx: 60, cy: 60, r: 43, fill: 'none', stroke: segment.colour, 'stroke-width': 14, pathLength: 100, 'stroke-dasharray': `${segment.share} ${100 - segment.share}`, 'stroke-dashoffset': -segment.offset, transform: 'rotate(-90 60 60)' }));
-    });
-    svg.append(svgElement('text', { x: 60, y: 57, 'text-anchor': 'middle', 'font-size': 11, class: 'fill-base-content', 'font-weight': 600 }, money(total)));
-    svg.append(svgElement('text', { x: 60, y: 71, 'text-anchor': 'middle', 'font-size': 8, class: 'fill-base-content', opacity: 0.65 }, 'spent'));
-    host.replaceChildren(svg);
-    legend.replaceChildren(...segments.map((segment) => {
-        const item = document.createElement('li');
-        item.className = 'flex items-center justify-between gap-2 py-1';
-        const name = document.createElement('span');
-        name.className = 'flex min-w-0 items-start gap-1.5';
-        const swatch = document.createElement('span');
-        swatch.className = 'mt-1 size-2 shrink-0 rounded-sm';
-        swatch.style.backgroundColor = segment.colour;
-        swatch.setAttribute('aria-hidden', 'true');
-        const label = document.createElement('span');
-        label.className = 'break-words';
-        label.textContent = segment.name;
-        name.append(swatch, label);
-        const value = document.createElement('span');
-        value.className = 'shrink-0 text-right tabular-nums';
-        value.textContent = `${money(segment.amount)} · ${segment.share.toFixed(1)}%`;
-        item.append(name, value);
-        return item;
-    }));
-    empty.hidden = total > 0;
-    host.hidden = total === 0;
-    legend.hidden = total === 0;
-}
-
 export function registerDashboardCharts(Alpine) {
     Alpine.data('dashboardPaceChart', () => ({
         budgets: [],
@@ -146,25 +93,6 @@ export function registerDashboardCharts(Alpine) {
         render() {
             if (this.budgets.length) {
                 renderPace(this.$el, this.budgets);
-            }
-        },
-    }));
-
-    Alpine.data('spendingMixChart', () => ({
-        budgets: [],
-
-        init() {
-            const data = this.$el.querySelector('[data-mix-data]');
-            if (!data) {
-                return;
-            }
-            this.budgets = JSON.parse(data.textContent);
-            this.$nextTick(() => this.render());
-        },
-
-        render() {
-            if (this.budgets.length) {
-                renderMix(this.$el, this.budgets);
             }
         },
     }));
