@@ -1,8 +1,8 @@
-<section class="space-y-3" aria-labelledby="budget-charges-title">
-    <header class="flex flex-wrap items-center justify-between gap-2">
-        <div>
-            <h3 id="budget-charges-title" class="flex items-center gap-1.5 text-sm font-semibold"><x-lucide-repeat class="size-4 text-primary" aria-hidden="true" />Subscription charges</h3>
-            <p class="mt-1 text-xs opacity-65">Payments scheduled inside this period's dates, from the budget owner's subscriptions.</p>
+<section class="space-y-4" aria-labelledby="budget-charges-title">
+    <header class="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-base-300 bg-base-100 p-3">
+        <div class="flex items-center gap-2">
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-sm bg-secondary/10 text-secondary"><x-lucide-credit-card class="size-4" aria-hidden="true" /></span>
+            <div><h3 id="budget-charges-title" class="text-sm font-semibold">Subscription charges <span class="text-xs font-normal opacity-60">({{ $commitments->count() }})</span></h3><p class="mt-0.5 text-xs opacity-65">Payments scheduled inside this period's dates, from the budget owner's subscriptions.</p></div>
         </div>
         @if($budget->scope === 'personal' && $isOwner)
             <a class="btn btn-sm btn-outline" href="{{ route('subscriptions.index') }}">Manage your subscriptions <x-lucide-arrow-up-right class="size-3.5" aria-hidden="true" /></a>

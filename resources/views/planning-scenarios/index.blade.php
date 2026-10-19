@@ -9,9 +9,18 @@
     <header class="flex flex-wrap items-start justify-between gap-3"><div><h1 class="text-2xl font-bold">Planning scenarios</h1><p class="mt-1 text-sm opacity-65">Keep your ideas. Compare the trade-offs before choosing your next step.</p></div><a class="btn btn-outline" href="{{ route('planning-scenarios.index', ['kind' => $kind]) }}"><x-lucide-plus class="size-4" /> New scenario</a></header>
     @if(session('status'))<div class="alert alert-success text-sm" role="status">{{ session('status') }}</div>@endif
     @if($errors->any())<div class="alert alert-error text-sm" role="alert"><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-    <nav class="tabs tabs-border" aria-label="Planning tools">@foreach($kinds as $key => $label)<a @class(['tab', 'tab-active' => $kind === $key]) href="{{ route('planning-scenarios.index', ['kind' => $key]) }}" @if($kind === $key) aria-current="page" @endif>{{ $label }}</a>@endforeach</nav>
-    <div class="grid items-start gap-5 lg:grid-cols-2">
-        <section class="rounded-sm border border-base-300 bg-base-100 p-4 sm:p-5" aria-labelledby="scenario-editor-title">
+    <div class="overflow-x-auto" role="region" aria-label="Planning scenario tabs" tabindex="0">
+    <nav class="tabs tabs-border w-max min-w-full flex-nowrap" aria-label="Planning scenario types">
+        @foreach($kinds as $key => $label)
+        <a @class(['tab inline-flex gap-1.5 whitespace-nowrap', 'tab-active' => $kind === $key]) href="{{ route('planning-scenarios.index', ['kind' => $key]) }}" @if($kind === $key) aria-current="page" @endif>
+            @if($key === 'debt')<x-lucide-credit-card class="size-4" aria-hidden="true" />@elseif($key === 'liquidity')<x-lucide-banknote class="size-4" aria-hidden="true" />@else<x-lucide-wallet class="size-4" aria-hidden="true" />@endif
+            {{ $label }}
+        </a>
+        @endforeach
+    </nav>
+    </div>
+    <div class="grid items-stretch gap-5 lg:grid-cols-2">
+        <section class="h-full rounded-sm border border-base-300 bg-base-100 p-4 sm:p-5" aria-labelledby="scenario-editor-title">
             <h2 id="scenario-editor-title" class="text-lg font-semibold">{{ $editingScenario ? 'Edit '.$editingScenario->name : 'Explore a new plan' }}</h2>
             <p class="mt-1 text-xs opacity-60">{{ $kinds[$kind] }} assumptions. Preview first, then save when you are ready.</p>
             <form id="scenario-editor" class="mt-4 space-y-4" method="post" action="{{ $editingScenario ? route('planning-scenarios.update', $editingScenario) : route('planning-scenarios.store') }}">
@@ -39,7 +48,7 @@
                 <div class="flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">{{ $editingScenario ? 'Update scenario' : 'Save scenario' }}</button><button class="btn btn-outline" type="submit" formaction="{{ route('planning-scenarios.preview') }}" formnovalidate>Preview changes</button>@if($editingScenario)<a class="btn btn-ghost" href="{{ route('planning-scenarios.index', ['scenario' => $editingScenario->id]) }}">Discard edits</a>@endif</div>
             </form>
         </section>
-        <section class="space-y-4 rounded-sm border border-primary/25 bg-base-100 p-4 sm:p-5" aria-labelledby="scenario-preview-title">
+        <section class="flex h-full flex-col space-y-4 rounded-sm border border-primary/25 bg-base-100 p-4 sm:p-5" aria-labelledby="scenario-preview-title">
             <div><h2 id="scenario-preview-title" class="text-xs font-semibold uppercase tracking-wide text-primary">Current preview</h2><p class="mt-2 text-xl font-semibold">{{ $result['headline'] }}</p><p class="mt-1 text-xs opacity-65">{{ $result['detail'] }}</p><p class="mt-2 text-xs opacity-60">Preview reflects the last submitted assumptions. Use Preview changes to refresh it.</p></div>
             <div class="grid gap-3 sm:grid-cols-2">@foreach($result['metrics'] as $label => $value)<div class="rounded-sm bg-base-200/60 p-3"><p class="text-xs opacity-60">{{ $label }}</p><p class="mt-1 break-words text-lg font-semibold {{ $value < 0 ? 'text-error' : '' }}">{{ $money($value) }}</p></div>@endforeach</div>
             @include('planning-scenarios.warnings', ['warnings' => $result['warnings']])

@@ -1,11 +1,15 @@
-<div class="space-y-8">
+<div class="space-y-4">
+    <header class="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-base-300 bg-base-100 p-3">
+        <div class="flex items-center gap-2">
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-sm bg-primary/10 text-primary"><x-lucide-clipboard-list class="size-4" aria-hidden="true" /></span>
+            <div><h3 class="text-sm font-semibold">Plan this period</h3><p class="text-xs opacity-65">Set expected income and category limits. Changes save automatically.</p></div>
+        </div>
+        <p class="text-xs tabular-nums opacity-65">{{ $categoryRows->count() }} categories <span aria-hidden="true">&middot;</span> {{ $incomes->count() }} income sources</p>
+    </header>
     @include('budgets.groups')
-
-    <p class="text-sm opacity-60">Set your income and category limits. Changes save automatically.</p>
-
-    <section class="space-y-3" aria-labelledby="budget-categories-title">
+    <section class="space-y-3 rounded-sm border border-base-300 bg-base-100 p-3 sm:p-4" aria-labelledby="budget-categories-title">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <h3 class="text-xl font-semibold" id="budget-categories-title">Your category plan</h3>
+            <div><h3 class="font-semibold" id="budget-categories-title">Category limits</h3><p class="mt-0.5 text-xs opacity-65">Compare recorded spending with the amount planned for each category.</p></div>
             @if($canEdit)
                 <div class="flex flex-wrap gap-2">
                     <button class="btn btn-sm btn-outline" type="button" data-open-dialog="budget-category">Add category</button>
@@ -102,11 +106,11 @@
         </div>
     </section>
 
-    <section id="budget-incomes" class="space-y-4" aria-labelledby="budget-incomes-title">
+    <section id="budget-incomes" class="space-y-3 rounded-sm border border-base-300 bg-base-100 p-3 sm:p-4" aria-labelledby="budget-incomes-title">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-                <h3 class="text-xl font-semibold" id="budget-incomes-title">Income sources</h3>
-                <p class="mt-1 text-sm opacity-70">Expected income funds your plan. Record received income separately.</p>
+                <h3 class="font-semibold" id="budget-incomes-title">Income sources <span class="text-xs font-normal opacity-60">({{ $incomes->count() }})</span></h3>
+                <p class="mt-0.5 text-xs opacity-65">Expected income funds your plan. Record received income separately.</p>
             </div>
             @if($canEdit)
                 <button class="btn btn-sm btn-outline" data-open-dialog="budget-income" type="button">Add income</button>

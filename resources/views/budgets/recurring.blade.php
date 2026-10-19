@@ -1,10 +1,10 @@
 <div class="space-y-3">
-    <header class="flex flex-wrap items-center justify-between gap-2">
-        <div>
-            <h3 class="flex items-center gap-1.5 text-sm font-semibold"><x-lucide-repeat class="size-4 text-primary" aria-hidden="true" />Recurring expenses</h3>
-            <p class="mt-1 text-xs opacity-65">Regular bills scheduled in this period, with estimates based on your payment history.</p>
+    <header class="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-base-300 bg-base-100 p-3">
+        <div class="flex items-center gap-2">
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-sm bg-primary/10 text-primary"><x-lucide-repeat class="size-4" aria-hidden="true" /></span>
+            <div><h3 class="text-sm font-semibold">Recurring expenses <span class="text-xs font-normal opacity-60">({{ $recurringCharges->count() }} scheduled)</span></h3><p class="mt-0.5 text-xs opacity-65">Regular bills in this period, with estimates based on your payment history.</p></div>
         </div>
-        @if($canEdit)<button class="btn btn-primary btn-sm" type="button" data-open-dialog="budget-recurring-edit" data-new-recurring><x-lucide-plus class="size-3.5" aria-hidden="true" />Add recurring expense</button>@endif
+        @if($canEdit)<button class="btn btn-primary btn-sm" type="button" data-open-dialog="budget-recurring-edit" data-new-recurring><x-lucide-plus class="size-4" aria-hidden="true" />Add recurring expense</button>@endif
     </header>
     @include('budgets.scheduled-summary', ['scheduledCharges' => $recurringCharges, 'summaryLabel' => 'Recurring payments for this period'])
     <section class="space-y-2" aria-labelledby="budget-recurring-due-title">

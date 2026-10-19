@@ -11,6 +11,15 @@ These rules apply to every agent making UI changes anywhere in this repository, 
 - Keep layouts usable for both small and large collections. Prefer bounded, scrollable tables and legends with sticky table headers over an expanding grid of cards. Retain access to every item; do not hide or truncate data to achieve compactness.
 - Put core information and frequent actions first. Use clearly labelled expandable sections for optional detail and planning tools when appropriate.
 
+## Feature tabs
+
+- Apply these principles to every feature with tabs; Net Worth is a reference for visual polish, not a template to copy literally.
+- Keep tab navigation consistent within a feature: use concise, descriptive labels, a clearly visible active state, and an accessible name. On narrow screens, keep tabs reachable with horizontal scrolling rather than letting them wrap into a confusing second navigation row.
+- Give each tab a clear content heading and, when useful, one short explanation. Keep actions relevant to the current tab and place primary actions where users need them; do not repeat global actions in both the page header and tab content.
+- Establish a consistent visual hierarchy across sibling tabs using the same spacing, heading scale, restrained borders, theme colors, and action styles. Adapt the content presentation to its purpose; do not force every tab into identical cards or add decoration that competes with its data.
+- Show useful summaries before detailed records. Keep large tables and lists bounded and fully accessible, and provide clear empty and filtered-empty states without hiding existing actions or data.
+- Preserve each tab's existing behavior, data semantics, and deep links when refreshing its UI. Verify representative tabs at narrow and wide widths, including long content and empty states.
+
 ## Visual language and accessibility
 
 - Reuse existing daisyUI components and Lucide icons before introducing custom alternatives. Prefer compact component sizes, slim progress bars, subtle borders, and existing theme tokens.

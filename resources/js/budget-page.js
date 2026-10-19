@@ -11,8 +11,57 @@ export function budgetPage() {
     let pendingMutations = 0;
     const submittingForms = new WeakSet();
     const currencyPrefix = document.body.dataset.currencyPrefix || 'R ';
+    const rememberedPeriodKey = 'moola.budgets.last-period';
     const money = (cents) => `${currencyPrefix}${new Intl.NumberFormat('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100)}`;
     const editing = () => workspace.contains(document.activeElement) && document.activeElement.matches('input:not([type=hidden]), textarea, select');
+
+    function rememberPeriod(periodId) {
+        try {
+            localStorage.setItem(rememberedPeriodKey, periodId);
+        } catch {}
+    }
+
+    function filterPeriods(search) {
+        const query = search.trim().toLocaleLowerCase();
+        let visiblePeriods = 0;
+        for (const group of workspace.querySelectorAll('[data-budget-period-group]')) {
+            let visibleInGroup = 0;
+            for (const option of group.querySelectorAll('[data-budget-period-option]')) {
+                option.hidden = query !== '' && !option.dataset.budgetPeriodSearchTerm.toLocaleLowerCase().includes(query);
+                if (!option.hidden) {
+                    visiblePeriods++;
+                    visibleInGroup++;
+                }
+            }
+            group.hidden = visibleInGroup === 0;
+        }
+        const noResults = workspace.querySelector('[data-budget-period-empty]');
+        if (noResults) {
+            noResults.hidden = visiblePeriods > 0;
+        }
+    }
+
+    function syncPeriodPicker() {
+        const selector = workspace.querySelector('[data-budget-period-select]');
+        if (!selector) {
+            return;
+        }
+
+        component.selectedBudgetPeriod = selector.value;
+        component.selectedPeriodLabel = selector.selectedOptions[0]?.textContent.trim() ?? '';
+        workspace.querySelectorAll('[data-budget-period-option]').forEach((option) => {
+            option.setAttribute('aria-pressed', String(option.dataset.budgetPeriodId === selector.value));
+        });
+        const picker = workspace.querySelector('[data-budget-period-picker]');
+        if (picker) {
+            picker.open = false;
+        }
+        const search = workspace.querySelector('[data-budget-period-query]');
+        if (search) {
+            search.value = '';
+            filterPeriods('');
+        }
+    }
 
     function selectTab(name, focus = false) {
         const selected = [...workspace.querySelectorAll('[data-budget-tab]')].find((tab) => tab.dataset.budgetTab === name);
@@ -61,6 +110,7 @@ export function budgetPage() {
         } else {
             workspace.innerHTML = html;
             deferredHtml = null;
+            syncPeriodPicker();
             selectTab(component.activeTab);
         }
     }
@@ -152,6 +202,19 @@ export function budgetPage() {
         return queue;
     }
 
+    function selectBudgetPeriod(periodId) {
+        const selector = workspace.querySelector('[data-budget-period-select]');
+        const form = selector?.closest('form');
+        if (!selector || !form || ![...selector.options].some((option) => option.value === periodId)) {
+            return;
+        }
+
+        selector.value = periodId;
+        syncPeriodPicker();
+        rememberPeriod(periodId);
+        enqueue(`${form.action}?${new URLSearchParams(new FormData(form))}`, null);
+    }
+
     function validForm(form) {
         const received = form.elements.namedItem('received_amount');
         const receivedDate = form.elements.namedItem('received_date');
@@ -183,6 +246,10 @@ export function budgetPage() {
 
     return {
         activeTab: 'overview',
+        periodPickerEnhanced: false,
+        selectedBudgetPeriod: '',
+        selectedPeriodLabel: '',
+        selectBudgetPeriod,
 
         init() {
             component = this;
@@ -193,6 +260,33 @@ export function budgetPage() {
             undo = page.querySelector('[data-budget-undo]');
             if (!workspace) {
                 return;
+            }
+            const periodSelector = workspace.querySelector('[data-budget-period-select]');
+            if (periodSelector) {
+                component.periodPickerEnhanced = true;
+                syncPeriodPicker();
+                const currentPeriod = periodSelector.value;
+                const url = new URL(location.href);
+                const requestedPeriod = url.searchParams.get('period');
+                let rememberedPeriod = null;
+                if (!requestedPeriod) {
+                    try {
+                        rememberedPeriod = localStorage.getItem(rememberedPeriodKey);
+                    } catch {}
+                }
+
+                if (rememberedPeriod && [...periodSelector.options].some((option) => option.value === rememberedPeriod)) {
+                    if (rememberedPeriod !== currentPeriod) {
+                        periodSelector.value = rememberedPeriod;
+                        syncPeriodPicker();
+                        const form = periodSelector.closest('form');
+                        enqueue(`${form.action}?${new URLSearchParams(new FormData(form))}`, null);
+                    } else {
+                        rememberPeriod(currentPeriod);
+                    }
+                } else {
+                    rememberPeriod(currentPeriod);
+                }
             }
             const requestedTab = new URL(location.href).searchParams.get('tab');
             const validTab = [...workspace.querySelectorAll('[data-budget-tab]')].some((tab) => tab.dataset.budgetTab === requestedTab);
@@ -245,8 +339,9 @@ export function budgetPage() {
                 enqueue(`${expenseFilters.action}?${parameters}`, null);
                 return;
             }
-            if (event.target.closest('[data-budget-navigation]')) {
+            if (event.target.matches('[data-budget-period-select]')) {
                 const form = event.target.closest('form');
+                rememberPeriod(event.target.value);
                 enqueue(`${form.action}?${new URLSearchParams(new FormData(form))}`, null);
                 return;
             }
@@ -276,6 +371,10 @@ export function budgetPage() {
         },
 
         handleInput(event) {
+            if (event.target.matches('[data-budget-period-query]')) {
+                filterPeriods(event.target.value);
+                return;
+            }
             if (event.target.closest('[data-budget-dates]') && ['start_date', 'end_date'].includes(event.target.name)) {
                 event.target.closest('form').elements.namedItem('preview_token').value = '';
             }

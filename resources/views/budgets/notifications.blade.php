@@ -1,10 +1,15 @@
 @if($errors->any())
 <div class="alert alert-error mb-4 rounded-sm" role="alert"><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
 @endif
-<div class="grid gap-4 lg:grid-cols-2">
-    <section class="card border border-base-300 bg-base-100 rounded-sm">
+<div class="space-y-3">
+    <header class="flex items-center gap-2 rounded-sm border border-base-300 bg-base-100 px-3 py-2.5">
+        <span class="flex size-8 shrink-0 items-center justify-center rounded-sm bg-primary/10 text-primary"><x-lucide-bell class="size-4" aria-hidden="true" /></span>
+        <div><h2 class="text-sm font-semibold">Budget notifications</h2><p class="text-xs opacity-65">Choose personal alerts and shared reminder rules for this budget.</p></div>
+    </header>
+    <div class="grid items-stretch gap-3 lg:grid-cols-2">
+    <section class="card h-full rounded-sm border border-base-300 bg-base-100">
         <div class="card-body gap-4">
-            <div><h3 class="card-title text-base">Your notifications</h3><p class="mt-1 text-sm opacity-60">Choose what you receive for {{ $budget->name }}. Your choices do not affect other members.</p></div>
+            <div class="flex items-start gap-2"><span class="flex size-8 shrink-0 items-center justify-center rounded-sm bg-info/10 text-info"><x-lucide-bell-ring class="size-4" aria-hidden="true" /></span><div><h3 class="card-title text-base">Your notifications</h3><p class="mt-1 text-xs opacity-65">Choose what you receive for {{ $budget->name }}. Your choices do not affect other members.</p></div></div>
             <form method="post" action="{{ route('notifications.preferences', $budget) }}" class="space-y-3">
                 @csrf
                 @foreach($notificationTypes as $type => $label)
@@ -19,9 +24,9 @@
             </form>
         </div>
     </section>
-    <section class="card border border-base-300 bg-base-100 rounded-sm">
+    <section class="card h-full rounded-sm border border-base-300 bg-base-100">
         <div class="card-body gap-4">
-            <div><h3 class="card-title text-base">Budget alert rules</h3><p class="mt-1 text-sm opacity-60">Shared rules for this budget. Reminders use {{ config('app.timezone') }}.</p></div>
+            <div class="flex items-start gap-2"><span class="flex size-8 shrink-0 items-center justify-center rounded-sm bg-warning/10 text-warning"><x-lucide-shield-alert class="size-4" aria-hidden="true" /></span><div><h3 class="card-title text-base">Budget alert rules</h3><p class="mt-1 text-xs opacity-65">Shared rules for this budget. Reminders use {{ config('app.timezone') }}.</p></div></div>
             @if($canEdit)
             <form method="post" action="{{ route('notifications.settings', $budget) }}" class="space-y-4">
                 @csrf
@@ -41,4 +46,5 @@
             <p class="text-xs opacity-60">Warnings fire once per limit and period. Overall warnings use expected income, or total allocations if no income is planned. Paid or resolved alerts leave the active list. Overdue reminders cover current periods and periods ended within the last seven days.</p>
         </div>
     </section>
+    </div>
 </div>

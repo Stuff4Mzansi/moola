@@ -1,4 +1,8 @@
 <div class="space-y-6">
+    <header class="flex items-center gap-2 rounded-sm border border-base-300 bg-base-100 px-3 py-2.5">
+        <span class="flex size-8 shrink-0 items-center justify-center rounded-sm bg-primary/10 text-primary"><x-lucide-chart-no-axes-combined class="size-4" aria-hidden="true" /></span>
+        <div><h3 class="text-sm font-semibold">Budget overview</h3><p class="text-xs opacity-65">Income, spending, and how your plan is tracking this period.</p></div>
+    </header>
     @include('budgets.summary')
     @include('budgets.group-analytics')
     <div data-budget-live="analytics" class="space-y-6">

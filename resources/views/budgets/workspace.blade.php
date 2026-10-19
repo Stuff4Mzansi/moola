@@ -12,14 +12,82 @@
 @endphp
 <div class="space-y-6" data-budget-version="{{ $period->version }}" data-budget-period="{{ $period->id }}" data-budget-undo-url="{{ $actionUrl('expense-restore') }}">
     <div class="flex flex-wrap items-end justify-between gap-4">
-        <form action="{{ route('budgets.index') }}" method="get" data-budget-navigation><label class="label" for="budget-period-select">Budget and period</label><select id="budget-period-select" name="period" class="select w-full max-w-xl">@foreach($budgets as $visibleBudget)<optgroup label="{{ $visibleBudget->name }} ({{ $visibleBudget->scope }})">@foreach($visibleBudget->periods as $visiblePeriod)<option value="{{ $visiblePeriod->id }}" @selected($visiblePeriod->id === $period->id)>{{ $visiblePeriod->name }}: {{ $visiblePeriod->start_date->format('d M Y') }} - {{ $visiblePeriod->end_date->format('d M Y') }}</option>@endforeach</optgroup>@endforeach</select><noscript><button class="btn btn-sm" type="submit">Open period</button></noscript></form>
-        <div class="flex flex-wrap gap-2"><span class="badge badge-outline">{{ $budget->scope === 'household' ? 'Shared household budget' : 'Private personal budget' }}</span><span class="badge badge-outline">{{ $isOwner ? 'Owner' : ($canEdit ? 'Editor' : 'View only') }}</span></div>
+        <form action="{{ route('budgets.index') }}" method="get" class="w-full max-w-xl" data-budget-navigation>
+            <label class="label" for="budget-period-select">Budget and period</label>
+            <select id="budget-period-select" name="period" class="select select-sm w-full" aria-label="Select a budget period" data-budget-period-select x-bind:hidden="periodPickerEnhanced">
+                @foreach($budgets as $visibleBudget)
+                <optgroup label="{{ $visibleBudget->name }} ({{ $visibleBudget->scope }})">
+                    @foreach($visibleBudget->periods as $visiblePeriod)
+                    <option value="{{ $visiblePeriod->id }}" @selected($visiblePeriod->id === $period->id)>{{ $visiblePeriod->name }}: {{ $visiblePeriod->start_date->format('d M Y') }} - {{ $visiblePeriod->end_date->format('d M Y') }}</option>
+                    @endforeach
+                </optgroup>
+                @endforeach
+            </select>
+            <details class="dropdown w-full" data-budget-period-picker x-bind:hidden="!periodPickerEnhanced">
+                <summary class="btn btn-sm btn-outline mt-1 w-full justify-between gap-2 bg-base-100 text-left font-normal hover:bg-base-200" aria-label="Choose a budget period">
+                    <span class="truncate text-left" x-text="selectedPeriodLabel"></span>
+                    <x-lucide-chevron-down class="size-4 shrink-0" aria-hidden="true" />
+                </summary>
+                <div class="dropdown-content z-20 mt-1 w-full rounded-sm border border-base-300 bg-base-100 p-2 shadow-lg">
+                    <input id="budget-period-search" class="input input-sm w-full" type="search" placeholder="Search budgets and periods" aria-label="Search budgets and periods" aria-controls="budget-period-options" data-budget-period-query>
+                    <div class="mt-2 max-h-72 overflow-y-auto" role="group" aria-label="Budget periods" tabindex="0">
+                        <div id="budget-period-options" class="space-y-1">
+                            @foreach($budgets as $visibleBudget)
+                            <ul class="menu menu-sm w-full gap-0 p-0 [&_button]:rounded-sm" data-budget-period-group>
+                                <li class="menu-title px-2 py-1 text-xs font-semibold opacity-60"><span>{{ $visibleBudget->name }} ({{ $visibleBudget->scope }})</span></li>
+                                @foreach($visibleBudget->periods as $visiblePeriod)
+                                <li><button class="min-h-8 whitespace-normal px-2 py-1.5 text-left text-xs font-normal leading-snug" type="button" aria-pressed="{{ $visiblePeriod->id === $period->id ? 'true' : 'false' }}" x-bind:class="{ 'active': selectedBudgetPeriod === @js((string) $visiblePeriod->id) }" data-budget-period-option data-budget-period-id="{{ $visiblePeriod->id }}" data-budget-period-search-term="{{ $visibleBudget->name }} {{ $visiblePeriod->name }} {{ $visiblePeriod->start_date->format('d M Y') }} {{ $visiblePeriod->end_date->format('d M Y') }}" @click="selectBudgetPeriod('{{ $visiblePeriod->id }}')">{{ $visiblePeriod->name }}: {{ $visiblePeriod->start_date->format('d M Y') }} - {{ $visiblePeriod->end_date->format('d M Y') }}</button></li>
+                                @endforeach
+                            </ul>
+                            @endforeach
+                        </div>
+                        <p class="px-2 py-2 text-sm opacity-65" role="status" aria-live="polite" data-budget-period-empty hidden>No matching budgets or periods.</p>
+                    </div>
+                </div>
+            </details>
+            <noscript><button class="btn btn-sm mt-2" type="submit">Open period</button></noscript>
+        </form>
+        <dl class="flex flex-wrap items-stretch gap-2 text-xs">
+            <div class="flex items-center gap-2 rounded-sm bg-base-200/60 px-3 py-2">
+                <span class="flex size-7 shrink-0 items-center justify-center rounded-sm bg-primary/10 text-primary">
+                    @if($budget->scope === 'household')
+                    <x-lucide-users-round class="size-4" aria-hidden="true" />
+                    @else
+                    <x-lucide-user-round class="size-4" aria-hidden="true" />
+                    @endif
+                </span>
+                <div>
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-base-content/55">Budget type</dt>
+                    <dd class="mt-0.5 font-semibold text-base-content">{{ $budget->scope === 'household' ? 'Shared household budget' : 'Private personal budget' }}</dd>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 rounded-sm bg-base-200/60 px-3 py-2">
+                <span @class([
+                    'flex size-7 shrink-0 items-center justify-center rounded-sm',
+                    'bg-primary/10 text-primary' => $isOwner,
+                    'bg-secondary/10 text-secondary' => $canEdit && !$isOwner,
+                    'bg-info/10 text-info' => !$canEdit && !$isOwner,
+                ])>
+                    @if($isOwner)
+                    <x-lucide-shield-check class="size-4" aria-hidden="true" />
+                    @elseif($canEdit)
+                    <x-lucide-square-pen class="size-4" aria-hidden="true" />
+                    @else
+                    <x-lucide-eye class="size-4" aria-hidden="true" />
+                    @endif
+                </span>
+                <div>
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-base-content/55">Access</dt>
+                    <dd class="mt-0.5 font-semibold text-base-content">{{ $isOwner ? 'Owner' : ($canEdit ? 'Editor' : 'View only') }}</dd>
+                </div>
+            </div>
+        </dl>
     </div>
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div><h2 class="text-2xl font-semibold break-words">{{ $budget->name }}</h2><p class="mt-1 text-sm opacity-60">{{ $period->name }} &middot; {{ $period->start_date->format('d M Y') }} - {{ $period->end_date->format('d M Y') }} &middot; Both dates included</p></div>
         @if($canEdit || auth()->user()->can('delete', $budget))
         <div class="flex items-center gap-2">
-            @if($canEdit)<button class="btn btn-primary" data-open-dialog="budget-expense" data-new-expense type="button">+ Add expense</button>@endif
+            @if($canEdit && in_array($activeBudgetTab, ['overview', 'expenses'], true))<button class="btn btn-primary btn-sm" data-open-dialog="budget-expense" data-new-expense type="button"><x-lucide-plus class="size-4" aria-hidden="true" />Add expense</button>@endif
             <details class="dropdown dropdown-end"><summary class="btn btn-outline inline-flex items-center gap-2" aria-label="Budget options">Options <x-lucide-chevron-down class="size-4 shrink-0" aria-hidden="true" /></summary><ul class="menu dropdown-content z-10 mt-2 w-56 rounded-sm border border-base-300 bg-base-100 p-2 shadow-lg">
                 @if($canEdit)
                 <li><button data-open-dialog="budget-rename" type="button">Rename budget</button></li>
@@ -34,10 +102,13 @@
         </div>
         @endif
     </div>
-    <div class="overflow-x-auto border-b border-base-300">
-        <div class="tabs tabs-border w-max min-w-full" role="tablist" aria-label="Budget views">
+    <div class="overflow-x-auto border-b border-base-300" role="region" aria-label="Scrollable budget tabs" tabindex="0">
+        <div class="tabs tabs-border w-max min-w-full flex-nowrap" role="tablist" aria-label="Budget views">
             @foreach($budgetTabs as $tab => $label)
-            <button type="button" id="budget-tab-{{ $tab }}" @class(['tab gap-2 px-5', 'tab-active' => $tab === $activeBudgetTab]) x-bind:class="{ 'tab-active': activeTab === @js($tab) }" role="tab" aria-controls="budget-panel-{{ $tab }}" aria-selected="{{ $tab === $activeBudgetTab ? 'true' : 'false' }}" x-bind:aria-selected="activeTab === @js($tab)" tabindex="{{ $tab === $activeBudgetTab ? '0' : '-1' }}" x-bind:tabindex="activeTab === @js($tab) ? 0 : -1" data-budget-tab="{{ $tab }}">{{ $label }}@if($tab === 'expenses')<span class="badge badge-sm badge-ghost">{{ $expenseCount }}</span>@endif</button>
+            <button type="button" id="budget-tab-{{ $tab }}" @class(['tab shrink-0 gap-1.5 whitespace-nowrap px-4', 'tab-active text-primary' => $tab === $activeBudgetTab]) x-bind:class="{ 'tab-active text-primary': activeTab === @js($tab) }" role="tab" aria-controls="budget-panel-{{ $tab }}" aria-selected="{{ $tab === $activeBudgetTab ? 'true' : 'false' }}" x-bind:aria-selected="activeTab === @js($tab)" tabindex="{{ $tab === $activeBudgetTab ? '0' : '-1' }}" x-bind:tabindex="activeTab === @js($tab) ? 0 : -1" data-budget-tab="{{ $tab }}">
+                @if($tab === 'overview')<x-lucide-chart-no-axes-combined class="size-4 shrink-0" aria-hidden="true" />@elseif($tab === 'review')<x-lucide-clipboard-check class="size-4 shrink-0" aria-hidden="true" />@elseif($tab === 'plan')<x-lucide-clipboard-list class="size-4 shrink-0" aria-hidden="true" />@elseif($tab === 'expenses')<x-lucide-receipt-text class="size-4 shrink-0" aria-hidden="true" />@elseif($tab === 'subscriptions')<x-lucide-credit-card class="size-4 shrink-0" aria-hidden="true" />@elseif($tab === 'recurring')<x-lucide-repeat class="size-4 shrink-0" aria-hidden="true" />@else<x-lucide-bell class="size-4 shrink-0" aria-hidden="true" />@endif
+                {{ $label }}@if($tab === 'expenses')<span class="badge badge-sm badge-soft badge-primary">{{ $expenseCount }}</span>@endif
+            </button>
             @endforeach
         </div>
     </div>
